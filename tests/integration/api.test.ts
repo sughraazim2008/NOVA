@@ -22,7 +22,8 @@ async function call(handler: Handler, options: { method?: string; body?: unknown
     method,
     ...(body === undefined ? {} : { body: typeof body === "string" ? body : JSON.stringify(body) }),
   });
-  const response = await handler(request, { params: Promise.resolve(id ? { id } : {}) });
+  const params: Record<string, string> = id ? { id } : {};
+  const response = await handler(request, { params: Promise.resolve(params) });
   const payload = (await response.json()) as { data?: any; error?: { code: string; message: string; details?: any } };
   return { status: response.status, ...payload };
 }

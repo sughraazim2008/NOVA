@@ -11,6 +11,17 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    rules: {
+      // A leading underscore marks a parameter that is deliberately unused.
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+    },
+  },
+  {
+    // Test code reads untyped JSON responses.
+    files: ["tests/**/*.ts"],
+    rules: { "@typescript-eslint/no-explicit-any": "off" },
+  },
+  {
     files: purePackages.map((name) => `packages/${name}/src/**/*.ts`),
     rules: {
       "no-restricted-imports": [
