@@ -9,3 +9,4 @@ export * from "./task";
 export * from "./plan";
 export * from "./start";
 export * from "./behaviour";
+export * from "./decomposition";
