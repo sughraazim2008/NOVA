@@ -2,7 +2,7 @@
   "name": "nova",
   "version": "0.0.0",
   "private": true,
-  "description": "NOVA \u2014 Adaptive Goal Execution Engine",
+  "description": "NOVA — Adaptive Goal Execution Engine",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@12.9.1",
@@ -37,6 +37,7 @@
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.1",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "zod": "^4.6.5"
   }
 }
