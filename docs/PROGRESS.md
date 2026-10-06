@@ -6,7 +6,7 @@ Build order and exit gates: [NOVA_PLAN.md §8](NOVA_PLAN.md). Update this file a
 - [x] Phase 1 — Architecture (reviewed and approved)
 - [x] Phase 2 — Database + domain model
 - [x] Phase 3 — Goal system
-- [ ] Phase 4 — AI decomposition + Task Reality Check
+- [x] Phase 4 — AI decomposition + Task Reality Check (built; real-model check pending a provider)
 - [ ] Phase 5 — Planning engine
 - [ ] Phase 6 — Daily planner UI
 - [ ] Phase 7 — NOVA START
@@ -140,3 +140,42 @@ Known gaps, deliberately left:
 - GitHub sign-in is wired but untested until an OAuth app's id and secret are in `.env`.
 - No rate limiting yet (planned with the AI routes in Phase 4 and the security pass in Phase 12).
 - Milestones cannot be reordered from the screen.
+
+### Phase 4 — AI decomposition + Task Reality Check (2026-10-06)
+
+Built:
+
+- **Model client** (`packages/ai`): one `LLMClient` interface; a scripted `fake` adapter for tests; an `openai-compatible` adapter written with `fetch` that serves a hosted free tier or a local model.
+- **Validated generation**: every model reply is parsed against a Zod schema, then against semantic checks; one retry that tells the model exactly what was wrong; a second failure is `INVALID_OUTPUT`. One log line per call, with no prompt or reply text.
+- **Pipeline**: goal parser → milestone decomposer → task generator (one milestone at a time, each seeing the tasks before it) → draft validation → Task Reality Check. Prompts are versioned files.
+- **Task Reality Check**: stage 1 is rules with no model (vague openers, too short, longer than one 90-minute sitting); stage 2 has the model score every task and rewrite or split the weak ones. Verdicts: PASS, REWRITTEN, SPLIT, FLAGGED. If the model is unavailable the rules alone decide and the draft says so.
+- **API**: `POST /api/goals/decompose` returns a draft and saves nothing; `POST /api/goals/confirm` validates the reviewed draft again and saves everything in one transaction, recording a `DECOMPOSITION_CONFIRMED` event with what the reviewer accepted, edited, deleted and added; `GET /api/ai/status`. Decompose is rate-limited to six a minute per user.
+- **Screens**: "Describe it" entry with a review step showing before and after for rewritten and split tasks, editable titles and minutes, removable tasks and milestones, and tasks of the reviewer's own.
+- **Sample mode**: with no model configured, two example sentences return plans written by hand in advance, labelled as samples in the draft. Any other sentence gets an explanation, never an invented plan.
+- `pnpm ai:demo "<sentence>"` prints a decomposition in the terminal.
+
+Requirement check (FR-2.1 to FR-2.6):
+
+| Requirement | Result |
+|---|---|
+| FR-2.1 parse a sentence into a goal | met with the scripted model; **not yet run against a real model** |
+| FR-2.2 ordered milestones | same |
+| FR-2.3 tasks with duration, priority, dependencies | same; task-level deadlines are left empty by design (milestones carry dates) |
+| FR-2.4 schema validation, one retry, clean failure | met |
+| FR-2.5 review and confirm before saving | met |
+| FR-2.6 Task Reality Check, including "Work on portfolio" → "Choose the three projects to showcase" | met with the scripted model |
+
+Verified: 93 new unit tests and 21 new integration tests (133 unit and 79 integration in total), and by hand in the browser in sample mode: example sentence → review screen with a rewritten task marked → save → goal page with tasks and "waiting on" notes.
+
+**What is not verified.** No real language model has been called. Everything that depends on how a real model behaves (prompt quality, how often replies fail validation, whether a free or small model follows the schema) is untested until a provider is configured. The step planned as "compare providers on ten sentences" has not happened; it needs a free API key or a local model.
+
+Differences from the prompts and decisions made while building:
+
+- **No `replay` adapter yet.** It replays recorded real responses, so it cannot exist before a real model has been used. Sample mode covers the same need (demonstrating without a model) at the pipeline level instead. The replay adapter is still planned for the deployed demo.
+- Adapters return raw JSON; schema checking, retry and semantic checks live in one function above them, so behaviour is identical for every model.
+- The model never assigns identifiers: milestone and task keys are produced by code.
+- A fourth verdict, FLAGGED, covers a task the model passed but a rule or a low score disagrees with. It is shown to the reviewer and not changed.
+- Reality-check rewrites count as edits in the `DECOMPOSITION_CONFIRMED` record, since the comparison is between what the model first wrote and what was saved.
+- Rate limiting is in memory, per server process.
+
+Dependencies introduced: none beyond `zod`, now also a direct dependency of `packages/ai` and the root (tests).

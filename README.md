@@ -4,7 +4,7 @@ NOVA transforms long-term goals into adaptive daily execution plans. Unlike trad
 
 NOVA goes one step further: its planner does not stop when it gives the user a task. NOVA helps the user start the task, detects friction when execution fails, and adapts future plans based on how the user actually works.
 
-> **Status: in progress.** Sign-in and the goal system work: create goals, milestones, tasks and prerequisites, and track progress. The AI and the planner come next. See [docs/PROGRESS.md](docs/PROGRESS.md).
+> **Status: in progress.** Sign-in, the goal system and AI decomposition are built: describe a goal in a sentence, review the proposed milestones and tasks, and save. Without a model configured it runs in sample mode with two example sentences. The planner comes next. See [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Core loop
 
@@ -94,6 +94,8 @@ pnpm db:migrate       # create the tables
 pnpm db:seed          # one demo user with the example goal
 pnpm dev              # http://localhost:3000, then "Continue as demo user"
 ```
+
+The AI runs in sample mode until a model is configured; see the `LLM_*` settings in `.env.example`. `pnpm ai:demo "<sentence>"` prints a decomposition in the terminal.
 
 GitHub sign-in is optional locally. To enable it, create an OAuth app at github.com/settings/developers with the callback URL `http://localhost:3000/api/auth/callback/github` and put its id and secret in `.env`.
 

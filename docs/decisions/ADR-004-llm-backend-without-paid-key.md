@@ -25,3 +25,7 @@ Default for real use is a hosted free tier; the local model is the offline optio
 - Free tiers have rate limits and their terms change; the app must handle `UNAVAILABLE` gracefully and fall back to replay in demo mode.
 - **Privacy:** some free tiers may use submitted text to improve their models. The UI says where goal text is sent; behaviour data is never sent.
 - Fine-tuning a small open model later (Phase 14, part D) becomes possible because the local path exists.
+
+## Update after Phase 4 (2026-10-06)
+
+Built: `fake` and `openai-compatible`. Not built: `replay`, because there are no real responses to record until a provider is chosen. In its place, "sample mode" returns hand-written plans for two example sentences when no model is configured, and labels them as samples. The provider comparison is still to do.

@@ -2,7 +2,7 @@
   "name": "nova",
   "version": "0.0.0",
   "private": true,
-  "description": "NOVA — Adaptive Goal Execution Engine",
+  "description": "NOVA \u2014 Adaptive Goal Execution Engine",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@12.9.1",
@@ -21,7 +21,8 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "ai:demo": "tsx scripts/ai-demo.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

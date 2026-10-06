@@ -1,5 +1,5 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": { "types": ["node"] },
-  "include": ["*.ts", "../prisma.config.ts"]
+  "include": ["*.ts", "../prisma.config.ts", "../scripts/*.ts"]
 }
