@@ -4,7 +4,7 @@ NOVA transforms long-term goals into adaptive daily execution plans. Unlike trad
 
 NOVA goes one step further: its planner does not stop when it gives the user a task. NOVA helps the user start the task, detects friction when execution fails, and adapts future plans based on how the user actually works.
 
-> **Status: in progress.** Setup and architecture are complete. No features are implemented yet. See [docs/PROGRESS.md](docs/PROGRESS.md).
+> **Status: in progress.** Setup, architecture and the database layer are complete. No user-facing features yet. See [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Core loop
 
@@ -72,16 +72,39 @@ prisma/              Database schema and migrations
 
 ## Running locally
 
-Requires Node.js 22 or newer and pnpm (`corepack enable pnpm`).
+Requires Node.js 22 or newer, pnpm (`corepack enable pnpm`) and PostgreSQL 17.
+
+One-time database setup on macOS:
 
 ```bash
-pnpm install
-pnpm dev          # http://localhost:3000
-pnpm test
+brew install postgresql@17
+brew services start postgresql@17
+export PATH="/opt/homebrew/opt/postgresql@17/bin:$PATH"
+psql -d postgres -c "CREATE ROLE nova LOGIN PASSWORD 'nova' CREATEDB"
+createdb -O nova nova
+createdb -O nova nova_test
+```
+
+Then:
+
+```bash
+cp .env.example .env
+pnpm install          # also generates the database client
+pnpm db:migrate       # create the tables
+pnpm db:seed          # one demo user with the example goal
+pnpm dev              # http://localhost:3000
+```
+
+Checks:
+
+```bash
+pnpm test             # unit tests, then integration tests against nova_test
 pnpm typecheck
 pnpm lint
 pnpm build
 ```
+
+`pnpm db:studio` opens a browser view of the database.
 
 ## Documentation
 

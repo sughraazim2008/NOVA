@@ -94,9 +94,9 @@ Branch: `feature/domain-model`
 Phase 2: database and domain model, exactly as approved in docs/architecture.md.
 
 Build:
-- prisma/schema.prisma with the 11 entities: User, Goal, Milestone, Task, TaskDependency, DailyPlan, DailyTask, BehaviourEvent, FrictionEvent, ExecutionEstimate, GoalProjection. Enums for goal status, task status, priority, task category, energy demand, behaviour event type (9 values), friction reason (7 values), goal health status.
+- prisma/schema.prisma with the 12 entities in docs/architecture.md section 4: User, Goal, Milestone, Task, TaskDependency, DailyPlan, DailyTask, StartSession, BehaviourEvent, FrictionEvent, ExecutionEstimate, GoalProjection. Enums for goal status, task status, priority, task category, energy demand, behaviour event type (9 values), friction reason (7 values), goal health status.
 - Constraints: foreign keys with explicit cascade rules, unique (userId, date) on DailyPlan, unique (taskId, dependsOnTaskId) on TaskDependency, no self-dependency, indexes on the columns the planner queries.
-- First migration and a local Postgres setup (docker-compose.yml) documented in the README.
+- First migration and a local Postgres setup (installed with Homebrew, see ADR-006) documented in the README.
 - packages/types: one Zod schema and inferred type per entity, plus the input schemas (CreateGoalInput, CreateTaskInput, …). These are the only types other packages import.
 - packages/database: Prisma client singleton and typed query functions (goals, milestones, tasks, dependencies, plans, events). Nothing outside this package imports Prisma.
 - A seed script that creates one user, the "software engineering internship by December" goal, 5 milestones and about 20 tasks with realistic dependencies.

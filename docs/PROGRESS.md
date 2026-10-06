@@ -4,7 +4,7 @@ Build order and exit gates: [NOVA_PLAN.md §8](NOVA_PLAN.md). Update this file a
 
 - [x] Phase 0 — Project setup
 - [x] Phase 1 — Architecture (reviewed and approved)
-- [ ] Phase 2 — Database + domain model
+- [x] Phase 2 — Database + domain model
 - [ ] Phase 3 — Goal system
 - [ ] Phase 4 — AI decomposition + Task Reality Check
 - [ ] Phase 5 — Planning engine
@@ -52,3 +52,45 @@ Produced: `architecture.md`, `planning-engine.md` (13 worked examples), ADR-001 
 The developer approved all six questions in `architecture.md` §13 with the proposed defaults: GitHub sign-in, twelve tables and two system events, the capacity rule, the planner weights, PostgreSQL installed locally, hosted free AI tier with a local fallback.
 
 Added after approval at the developer's request: the game layer (`game-layer.md`, ADR-009, Phase 8b).
+
+### Phase 2 — Database + domain model (2026-10-06)
+
+Built:
+
+- `prisma/schema.prisma`: twelve tables, fifteen enums, cascade rules, indexes; ten check constraints added by hand in the first migration (duration range, no self-dependency, a deferred task must have a date, a plan cannot exceed its capacity, and others).
+- `@nova/types`: one Zod schema per entity, input schemas, and a schema per behaviour-event payload.
+- `@nova/database`: client, mappers from rows to domain types, and queries for users, goals, milestones, tasks, dependencies, daily plans and events. Every query takes the acting user's id.
+- `prisma/seed.ts`: demo user with the internship goal, 5 milestones, 21 tasks, 21 dependencies.
+- Tests: 40 unit, 45 integration against a real PostgreSQL test database.
+
+Requirement check against the Phase 2 "done when":
+
+| Check | Result |
+|---|---|
+| `pnpm db:migrate` | met |
+| `pnpm db:seed` | met |
+| `pnpm test` | met — 85 passing |
+| `pnpm typecheck`, `pnpm lint`, `pnpm build` | met |
+| Zod accepts valid and rejects invalid input | met |
+| CRUD, cascade deletes, unique constraints | met |
+| Dependency cycle rejected at write time | met, including two concurrent inserts |
+
+Differences from the prompt and decisions made while building:
+
+- PostgreSQL is installed with Homebrew rather than Docker (ADR-006).
+- Prisma 7 is used: the client is generated into `packages/database/src/generated` (not committed; `pnpm install` regenerates it), the connection goes through the `pg` driver adapter, and the connection string lives in `prisma.config.ts`.
+- Dependency writes take a per-user PostgreSQL advisory lock, so two requests cannot each pass the cycle check and together create a cycle.
+- `packages/database` turns off `exactOptionalPropertyTypes`, because Prisma treats an explicit `undefined` as "leave unchanged".
+- A test compares every enum in Prisma with its Zod counterpart, so the two definitions cannot drift.
+- Rebuilding a day's plan keeps entries the user has already acted on.
+
+Dependencies introduced:
+
+| Dependency | Why |
+|---|---|
+| prisma, @prisma/client | Required stack |
+| @prisma/adapter-pg | Prisma 7 connects to PostgreSQL through a driver adapter |
+| zod | Validation choice (ADR-003) |
+| tsx | Runs the TypeScript seed script |
+
+Not built (belongs to later phases): queries for start sessions, friction events, execution estimates and goal projections. Their tables exist; the queries arrive with the phases that use them.
