@@ -332,7 +332,7 @@ Rules that hold for every route:
 - A request for another user's record returns `NOT_FOUND`, never `FORBIDDEN`, so ids cannot be probed.
 - Anything the AI produced reaches the database only through a `confirm` or `apply` route that validates it again. The client is never trusted to send back an unmodified draft.
 - AI routes are rate-limited per user.
-- The API is the only way in. The web UI uses it like any other client, which is what lets the PWA and a native app reuse it unchanged.
+- Every change goes through the API, from any client. Server-rendered web pages read through the same services the API calls; the PWA and a native app use the API for reads as well.
 
 ---
 

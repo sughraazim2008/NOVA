@@ -5,7 +5,7 @@ Build order and exit gates: [NOVA_PLAN.md §8](NOVA_PLAN.md). Update this file a
 - [x] Phase 0 — Project setup
 - [x] Phase 1 — Architecture (reviewed and approved)
 - [x] Phase 2 — Database + domain model
-- [ ] Phase 3 — Goal system
+- [x] Phase 3 — Goal system
 - [ ] Phase 4 — AI decomposition + Task Reality Check
 - [ ] Phase 5 — Planning engine
 - [ ] Phase 6 — Daily planner UI
@@ -94,3 +94,49 @@ Dependencies introduced:
 | tsx | Runs the TypeScript seed script |
 
 Not built (belongs to later phases): queries for start sessions, friction events, execution estimates and goal projections. Their tables exist; the queries arrive with the phases that use them.
+
+### Phase 3 — Goal system (2026-10-06)
+
+Built:
+
+- **Sign-in** with Auth.js: GitHub (enabled when `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET` are set) and a one-click demo sign-in that exists only outside production builds. Sessions are signed tokens; `requireUser()` is the single way a route or page gets the current user.
+- **HTTP layer** (`apps/web/server/http.ts`): one wrapper gives every route the same error shape and status codes.
+- **Services** (`apps/web/server/services/`): goals with progress, milestones, tasks, dependencies.
+- **API**: goals, milestones, tasks, dependencies and profile routes, as listed in `architecture.md` section 5.
+- **Screens**: sign-in, dashboard, goal list, new goal, and a goal page for editing milestones, tasks, status and prerequisites. Today is a placeholder until Phase 6.
+- **Behaviour hook** `onTaskCreated`, called inside the task-creation transaction, empty until Phase 8.
+
+Requirement check (FR-1.1 to FR-1.6):
+
+| Requirement | Result |
+|---|---|
+| FR-1.1 sign in, data scoped to the user | met — every route answers 401 without a session and 404 for another user's records |
+| FR-1.2 create a goal | met |
+| FR-1.3 edit, archive, delete | met |
+| FR-1.4 milestones and tasks, full CRUD | met |
+| FR-1.5 task fields | met |
+| FR-1.6 dashboard with progress | met (share of estimated minutes done) |
+
+Verified: 13 API integration tests (58 integration and 40 unit in total), and by hand in the browser: demo sign-in, create a goal, add a milestone and tasks, set a prerequisite, see the "waiting on" note, see a loop rejected with a readable message, tick a task and watch progress move, and the layout at phone width.
+
+Differences from the prompts and decisions made while building:
+
+- Both halves of the phase (3a API, 3b screens) were built by Claude Code in one pass at the developer's request, rather than handing the screens to a second tool.
+- Server-rendered pages read through the same services the API uses; every change goes through the API. Non-web clients use the API for everything.
+- `next-auth` is the 5.x beta: it is the line that supports the App Router `auth()` helper and Next 16. Pinned to an exact version.
+- Pages live in an `app/(app)/` route group so they share one signed-in layout; URLs are unchanged.
+- `exactOptionalPropertyTypes` was removed from the base compiler settings: Prisma's update inputs are incompatible with it, and the web app compiles the database package's source.
+- One `.env` at the repository root; `next.config.ts` loads it for the web app.
+
+Dependencies introduced:
+
+| Dependency | Why |
+|---|---|
+| next-auth (5.0.0-beta.32) | Sign-in and sessions (ADR-005) |
+| zod (in apps/web) | Request validation in routes |
+
+Known gaps, deliberately left:
+
+- GitHub sign-in is wired but untested until an OAuth app's id and secret are in `.env`.
+- No rate limiting yet (planned with the AI routes in Phase 4 and the security pass in Phase 12).
+- Milestones cannot be reordered from the screen.
