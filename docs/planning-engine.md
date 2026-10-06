@@ -278,7 +278,7 @@ A task deadline does more than break ties: it also raises `pressure` through tas
 
 ### Example 5 — Two goals competing for one day
 
-Capacity 60. Today is Oct 6. Each goal has one eligible task today; the rest of its remaining work is blocked behind it.
+Capacity 60. Today is Oct 6. Each goal has one eligible task today; the rest of its remaining work is in tasks deferred to later dates (they count towards remaining minutes, not towards `unblocks`).
 
 | Goal | Priority | Remaining | Deadline | Per day | Pressure |
 |---|---|---|---|---|---|

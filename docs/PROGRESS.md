@@ -43,3 +43,9 @@ Dependencies introduced, with justification:
 | @types/node, @types/react, @types/react-dom | Type definitions |
 
 Open for Phase 1: confirm pnpm / Zod / Vitest / Auth.js / Tailwind; choose the LLM provider (no paid API key — local model in development is the leading option).
+
+### Phase 1 — Architecture (2026-10-06) — written, awaiting approval
+
+Produced: `architecture.md`, `planning-engine.md` (13 worked examples), ADR-001 to ADR-008. The plan gained extension Phases 13–19 and the no-paid-key decision.
+
+Not yet ticked: the phase is complete only when the developer has answered the six questions in `architecture.md` §13 and approved the documents.

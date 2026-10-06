@@ -279,7 +279,9 @@ Additions to the PDF's layout: `ai/llm-client.ts`, `ai/task-reality-check.ts`, `
 
 ## 7. Core design
 
-### 7.1 Data model (11 entities — do not add more before Gate B)
+### 7.1 Data model
+
+> Superseded in detail by [architecture.md §4](architecture.md): twelve tables (adds `StartSession`) and a task status model of `TODO / IN_PROGRESS / DONE / DEFERRED / DROPPED` with a separate per-day outcome. The table below is the original outline.
 
 | Entity | Key fields | Introduced |
 |---|---|---|
@@ -317,7 +319,7 @@ interface PlannerOutput { date: string; capacityMin: number; usedMin: number; ta
 function generateDailyPlan(input: PlannerInput): PlannerOutput;
 ```
 
-Algorithm v1 (starting point; finalise in `docs/planning-engine.md` during Phase 1):
+Algorithm v1 (outline; the full specification with weights and worked examples is [planning-engine.md](planning-engine.md)):
 
 1. **Eligible set** — status TODO or IN_PROGRESS, every dependency DONE, goal ACTIVE. Cycle in the graph → throw a typed error.
 2. **Adjusted duration** — `estimatedMin × multiplier(category)`; multiplier is 1.0 until Phase 9.
