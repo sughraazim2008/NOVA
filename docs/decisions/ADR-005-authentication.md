@@ -1,6 +1,6 @@
 # ADR-005 — Auth.js with signed-token sessions
 
-Status: proposed — sign-in provider awaits the developer's choice
+Status: accepted (2026-10-06) — GitHub sign-in
 
 ## Context
 Every record belongs to a user. A PWA and later a native app must authenticate against the same API. The data model should stay small.

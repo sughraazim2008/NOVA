@@ -1,6 +1,6 @@
 # NOVA — Architecture
 
-Status: **proposed in Phase 1, awaiting approval.** No application code exists yet. Decisions are recorded individually in [decisions/](decisions/). The planner's algorithm is in [planning-engine.md](planning-engine.md).
+Status: **approved by the developer on 2026-10-06** (all six questions in §13 answered with the proposed defaults).  Decisions are recorded individually in [decisions/](decisions/). The planner's algorithm is in [planning-engine.md](planning-engine.md).
 
 Questions that need the developer's answer before approval are collected in §13.
 
@@ -135,6 +135,7 @@ PostgreSQL through Prisma. Twelve tables. Every table has `id` (cuid), and `crea
 | timezone | string | IANA name, default `"UTC"` |
 | defaultDailyCapacityMin | int | default 120, 0–960 |
 | lastActiveAt | datetime? | drives Rescue Mode |
+| gameMode | `FULL` / `QUIET` / `OFF` | default FULL; see [game-layer.md](game-layer.md) |
 
 ### Goal
 
@@ -455,6 +456,10 @@ events ──► patterns.ts ──► execution-model.ts ──► ExecutionEst
 
 `patterns.ts` and `execution-model.ts` are pure functions over an array of events. Recomputing from the full event history always gives the same result, so the stored estimates are a cache and can be rebuilt at any time.
 
+### From events to game state
+
+Sparks, levels, momentum and badges ([game-layer.md](game-layer.md)) are computed from the same event history by `behaviour/momentum.ts`. Nothing about them is stored except the user's `gameMode`, and the planner never sees them.
+
 ### Privacy
 
 Behaviour data is the most personal thing NOVA holds. It is never included in a share link, never sent to the LLM except as short derived hints ("keep writing tasks under 20 minutes"), and deleting an account deletes all of it.
@@ -531,7 +536,7 @@ Phases 5a and 5b (the pure planner) depend only on Phase 2 and can be built befo
 
 ---
 
-## 13. Questions for the developer before approval
+## 13. Questions put to the developer (all approved as proposed, 2026-10-06)
 
 1. **Sign-in method.** GitHub, Google, or an emailed sign-in link? GitHub is the least setup for a portfolio project. (ADR-005 assumes GitHub.)
 2. **Twelfth table and extra events.** `StartSession`, `DECOMPOSITION_CONFIRMED` and `REPLAN_APPLIED` go beyond the PDF's lists. Approve?

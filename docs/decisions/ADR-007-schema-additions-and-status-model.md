@@ -1,6 +1,6 @@
 # ADR-007 — Schema additions and the task status model
 
-Status: proposed
+Status: accepted (2026-10-06)
 
 ## Context
 The specification lists about eleven entities, nine events, and treats "skipped" as both a state and an event. Designing the flows exposed three gaps.

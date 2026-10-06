@@ -1,6 +1,6 @@
 # ADR-006 — PostgreSQL installed natively, not in Docker
 
-Status: proposed — awaits the developer's choice between local and hosted
+Status: accepted (2026-10-06) — installed locally with Homebrew
 
 ## Context
 The plan's Phase 2 prompt assumed `docker-compose`. The development Mac has 8 GB of memory and no Docker; Docker Desktop alone would take a large share of that alongside the dev server and a browser.

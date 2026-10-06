@@ -243,6 +243,7 @@ Phase 6: the Today page.
 - Capacity summary: "85 of 120 minutes planned".
 - Empty states: no goals yet; nothing eligible today; all done.
 - No overdue list anywhere on this page.
+- Completing a task gives immediate, satisfying feedback (a brief animation; sound optional and off by default). Build it as one reusable component: Phase 8b attaches points to it.
 
 Done when: verified in the browser — the plan renders for the seeded user, actions persist across reload, and the page is usable at phone width.
 ```
@@ -274,6 +275,7 @@ Build apps/web/app/start/[taskId]:
 - Full-screen, distraction-free. One micro-action at a time: "Step 1 — 2 min", the instruction in large type, one primary button with the step's doneLabel ("I'm there", "Done").
 - Secondary, quiet actions: "I'm stuck" (optional one-line note → replacement step slides in) and "Skip".
 - Subtle progress indicator; no visible countdown pressure.
+- Each completed step gives a small, immediate reward animation, and the first step of a session a slightly bigger one.
 - After the last generated step: "Keep going" (continue working, timer keeps running) or "Finish".
 - Completion screen: time spent vs estimate, stated neutrally, then back to Today.
 - Leaving mid-session asks one question: finish as partial, or abandon.
@@ -314,6 +316,37 @@ Phase 8: behaviour and friction tracking.
 Tests: one event per transition, no duplicates on retry; overrun/underrun thresholds; missed vs postponed vs abandoned are distinguished; shouldAskFriction cases; end-of-day function is idempotent.
 
 Done when: after using the app for a simulated week (seed script), /api/behaviour/summary shows believable, correct numbers.
+```
+
+## Phase 8b — Momentum (game layer) **[CC] then [AG]**
+
+Branch: `feature/momentum`
+
+```
+Phase 8b: the game layer. Read docs/game-layer.md first; its nine design rules are requirements, and a feature that breaks one is not built.
+
+[CC] Build packages/behaviour/momentum.ts (pure, same rules as the planner):
+- computeProgress(events, sessions, now) → { sparks, level, sparksToNextLevel, momentum, badges[], todayEarned, comeback: boolean }.
+- Spark values and the momentum formula exactly as the tables in docs/game-layer.md, as named constants in one file.
+- Level curve: quick early, slower later; document the formula.
+- Momentum: rises with actions, daily cap, slow decay after two idle days, floor that rises with level, never zero.
+- Badges as pure predicates over the event history.
+- Surprise bonus: seeded from the event id so the same event always yields the same result.
+- bossState(milestone, tasks) → { totalMin, remainingMin, percent }.
+- API: GET /api/progress (the computed state), PATCH /api/me { gameMode }. Each action route (step, complete, friction, rescue apply) returns the sparks it earned so the UI can show it at once.
+- The planner must not import or receive anything from this module. Add a test that fails if it does.
+
+[AG] Build the feel. Only UI files.
+- Step and task completion: a gain that pops within a second, optional sound, brief animation; the first spark of the day is visibly bigger.
+- Momentum flame in the app shell; level and progress to next level; companion that reacts and greets after a gap, and never looks sad.
+- Today: the first task as "Today's quest" with its steps as stages.
+- Goal page: journey map across milestones; each milestone a boss bar that drops as tasks complete.
+- Badges shelf. Settings: full / quiet / off. In quiet mode, no sound or motion; in off mode, none of this renders.
+- Respect the system "reduce motion" setting.
+
+Tests: sparks never decrease when events are appended; momentum never reaches zero and never drops on a rest day within the grace period; comeback bonus triggers at exactly the threshold; same events give same result regardless of order of equal-timestamp events; surprise bonus is reproducible; recomputing from full history equals incremental results; planner output is byte-identical with the game layer on and off.
+
+Done when: on the seeded simulated week, the progress numbers can be checked by hand against the tables, and in the browser a completed step visibly rewards within a second.
 ```
 
 ## Phase 9a — Replanner + adaptive task collapse **[CC]**

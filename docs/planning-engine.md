@@ -1,6 +1,6 @@
 # NOVA — Planning Engine
 
-Status: **proposed in Phase 1, awaiting approval.** Implemented in Phase 5 (`packages/planner`). Every worked example in §7 becomes a unit test.
+Status: **approved 2026-10-06.** Implemented in Phase 5 (`packages/planner`). Every worked example in §7 becomes a unit test.
 
 ## 1. What the planner is
 

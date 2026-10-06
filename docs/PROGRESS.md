@@ -3,7 +3,7 @@
 Build order and exit gates: [NOVA_PLAN.md §8](NOVA_PLAN.md). Update this file at every phase close-out.
 
 - [x] Phase 0 — Project setup
-- [ ] Phase 1 — Architecture (reviewed and approved)
+- [x] Phase 1 — Architecture (reviewed and approved)
 - [ ] Phase 2 — Database + domain model
 - [ ] Phase 3 — Goal system
 - [ ] Phase 4 — AI decomposition + Task Reality Check
@@ -12,6 +12,7 @@ Build order and exit gates: [NOVA_PLAN.md §8](NOVA_PLAN.md). Update this file a
 - [ ] Phase 7 — NOVA START
 - [ ] **Gate A — Working Loop demo**
 - [ ] Phase 8 — Behaviour tracking
+- [ ] Phase 8b — Momentum (game layer)
 - [ ] Phase 9 — Adaptive replanning
 - [ ] **Gate B — MVP demo (fail 3 tasks, watch it replan)**
 - [ ] Phase 10 — Goal health
@@ -44,8 +45,10 @@ Dependencies introduced, with justification:
 
 Open for Phase 1: confirm pnpm / Zod / Vitest / Auth.js / Tailwind; choose the LLM provider (no paid API key — local model in development is the leading option).
 
-### Phase 1 — Architecture (2026-10-06) — written, awaiting approval
+### Phase 1 — Architecture (2026-10-06) — approved
 
 Produced: `architecture.md`, `planning-engine.md` (13 worked examples), ADR-001 to ADR-008. The plan gained extension Phases 13–19 and the no-paid-key decision.
 
-Not yet ticked: the phase is complete only when the developer has answered the six questions in `architecture.md` §13 and approved the documents.
+The developer approved all six questions in `architecture.md` §13 with the proposed defaults: GitHub sign-in, twelve tables and two system events, the capacity rule, the planner weights, PostgreSQL installed locally, hosted free AI tier with a local fallback.
+
+Added after approval at the developer's request: the game layer (`game-layer.md`, ADR-009, Phase 8b).

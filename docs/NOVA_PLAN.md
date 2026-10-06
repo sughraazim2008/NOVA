@@ -150,6 +150,21 @@ The PDF fixes the first five. The rest were proposed where the PDF is silent and
 | FR-7.6 | **Rescue Mode**: after N days inactive (default 3), show "You're back" instead of the backlog; classify outstanding tasks into KEEP / DELETE / DEFER / TODAY and produce a small recovery plan | 11 | C |
 | FR-7.7 | **What-if simulator**: "what if I skip the next 7 days?" → current projection, projection after inactivity, extra minutes/day required, scope-reduction alternatives | 11 | C |
 
+### 3.8 Momentum — the game layer
+
+Purpose: get people with ADHD to open the app and start. Full design and rules in [game-layer.md](game-layer.md).
+
+| ID | Requirement | Phase | Gate |
+|---|---|---|---|
+| FR-8.1 | Immediate feedback (visual, optional sound) within a second of every step and task completed | 6, 7 | A |
+| FR-8.2 | Sparks (experience) for steps, tasks, friction reports and rescue plans; the first step of the day is worth most | 8b | B |
+| FR-8.3 | Levels that unlock cosmetic themes and companion looks; nothing is ever taken away | 8b | B |
+| FR-8.4 | Momentum meter in place of streaks: rises with action, decays slowly, never resets, comeback bonus | 8b | B |
+| FR-8.5 | Today's first task shown as a quest; milestones as bosses with health bars; goal as a journey map | 8b | B |
+| FR-8.6 | Badges for real behaviours (starting fast, coming back, asking for help) | 8b | B |
+| FR-8.7 | Game state is derived from the event history by pure functions; it never influences the planner | 8b | B |
+| FR-8.8 | Three modes: full, quiet, off. No leaderboards, no penalties, no guilt notifications | 8b | B |
+
 ---
 
 ## 4. Non-functional requirements
@@ -367,6 +382,7 @@ One branch per phase. Do the phases in order; each one's exit gate must pass bef
 | 7 | NOVA START | `feature/nova-start` | Claude Code (backend) + Antigravity (UX) | 4, 6 | 4–7 | Task → START → micro-actions → done/stuck/skip → completion with actual duration |
 | | **GATE A — Working Loop** | | | | ~15–25 total | Demo: goal sentence → plan → start → finish a task, end to end |
 | 8 | Behaviour tracking | `feature/behaviour-model` | Claude Code | 7 | 3–5 | All 9 event types recorded; friction prompt works; est-vs-actual stored |
+| 8b | Momentum (game layer) | `feature/momentum` | Claude Code (logic) + Antigravity (feel) | 8 | 5–9 | Sparks, levels, momentum, quest, boss bars and badges computed from events; modes full / quiet / off |
 | 9 | Adaptive replanning | `feature/replanning` | Claude Code | 8 | 5–8 | Missed task + friction reason produces a visibly different next plan; multipliers feed the planner; blocker sub-graphs work |
 | | **GATE B — MVP** | | | | ~35–55 total | Demo: fail 3 tasks on purpose → show collected data → show the rebuilt plan |
 | 10 | Goal health | `feature/goal-health` | Claude Code | 9 | 3–5 | Each goal shows projected date, status, and an explanation |
@@ -436,6 +452,7 @@ Copy this into `docs/PROGRESS.md` in Phase 0.
 - [ ] Phase 7 — NOVA START
 - [ ] **Gate A — Working Loop demo**
 - [ ] Phase 8 — Behaviour tracking
+- [ ] Phase 8b — Momentum (game layer)
 - [ ] Phase 9 — Adaptive replanning
 - [ ] **Gate B — MVP demo (fail 3 tasks, watch it replan)**
 - [ ] Phase 10 — Goal health
