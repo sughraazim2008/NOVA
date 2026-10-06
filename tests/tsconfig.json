@@ -1,5 +1,6 @@
 {
   "extends": "../tsconfig.base.json",
-  "include": ["**/*.ts"],
+  "compilerOptions": { "types": ["node"], "exactOptionalPropertyTypes": false },
+  "include": ["**/*.ts", "../prisma/seed.ts"],
   "exclude": ["e2e"]
 }

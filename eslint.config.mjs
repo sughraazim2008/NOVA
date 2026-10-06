@@ -6,7 +6,7 @@ const purePackages = ["planner", "behaviour", "simulation"];
 
 export default tseslint.config(
   {
-    ignores: ["**/node_modules/**", "**/.next/**", "**/dist/**", "**/coverage/**", "**/next-env.d.ts"],
+    ignores: ["**/node_modules/**", "**/.next/**", "**/dist/**", "**/coverage/**", "**/next-env.d.ts", "packages/database/src/generated/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
