@@ -79,3 +79,36 @@ export async function getGoalTree(db: Db, userId: string, goalId: string): Promi
     dependencies,
   };
 }
+
+export interface GoalProgress {
+  goalId: string;
+  /** Estimated minutes of finished tasks. */
+  doneMin: number;
+  /** Estimated minutes of all tasks still part of the goal (dropped tasks excluded). */
+  totalMin: number;
+  taskCount: number;
+  doneCount: number;
+}
+
+/** Progress per goal, measured in estimated minutes so one long task outweighs several tiny ones. */
+export async function getGoalProgress(db: Db, userId: string): Promise<Map<string, GoalProgress>> {
+  const rows = await db.task.groupBy({
+    by: ["goalId", "status"],
+    where: { goal: { userId }, status: { not: "DROPPED" } },
+    _sum: { estimatedMin: true },
+    _count: { _all: true },
+  });
+  const progress = new Map<string, GoalProgress>();
+  for (const row of rows) {
+    const entry = progress.get(row.goalId) ?? { goalId: row.goalId, doneMin: 0, totalMin: 0, taskCount: 0, doneCount: 0 };
+    const minutes = row._sum.estimatedMin ?? 0;
+    entry.totalMin += minutes;
+    entry.taskCount += row._count._all;
+    if (row.status === "DONE") {
+      entry.doneMin += minutes;
+      entry.doneCount += row._count._all;
+    }
+    progress.set(row.goalId, entry);
+  }
+  return progress;
+}

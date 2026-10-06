@@ -23,3 +23,13 @@ export const CreateUserInputSchema = z.object({
   defaultDailyCapacityMin: DailyCapacitySchema.optional(),
 });
 export type CreateUserInput = z.infer<typeof CreateUserInputSchema>;
+
+export const UpdateUserInputSchema = z
+  .object({
+    name: z.string().trim().min(1).max(100).nullable(),
+    timezone: z.string().min(1),
+    defaultDailyCapacityMin: DailyCapacitySchema,
+    gameMode: GameModeSchema,
+  })
+  .partial();
+export type UpdateUserInput = z.infer<typeof UpdateUserInputSchema>;

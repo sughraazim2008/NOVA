@@ -2,6 +2,7 @@ import {
   CreateTaskInputSchema,
   UpdateTaskInputSchema,
   type CreateTaskInput,
+  type IsoDateTime,
   type Task,
   type TaskStatus,
   type UpdateTaskInput,
@@ -64,17 +65,29 @@ export async function listTasks(
   return rows.map(toTask);
 }
 
+/**
+ * `now` stamps the completion time when the status becomes DONE; moving a task out of DONE clears it.
+ */
 export async function updateTask(
   db: Db,
   userId: string,
   taskId: string,
   input: UpdateTaskInput,
+  now?: IsoDateTime,
 ): Promise<Task | null> {
   const { deadline, deferredUntil, ...rest } = UpdateTaskInputSchema.parse(input);
   const toDate = (value: string | null | undefined) => (value == null ? value : fromIsoDate(value));
+  const completedAt =
+    rest.status === undefined ? undefined : rest.status === "DONE" ? (now ? new Date(now) : undefined) : null;
   const { count } = await db.task.updateMany({
     where: { id: taskId, goal: { userId } },
-    data: { ...rest, deadline: toDate(deadline), deferredUntil: toDate(deferredUntil) },
+    data: {
+      ...rest,
+      deadline: toDate(deadline),
+      // A task that is no longer deferred has no deferral date.
+      deferredUntil: rest.status !== undefined && rest.status !== "DEFERRED" ? null : toDate(deferredUntil),
+      completedAt,
+    },
   });
   return count === 0 ? null : getTask(db, userId, taskId);
 }
