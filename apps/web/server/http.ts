@@ -6,6 +6,7 @@ const STATUS = {
   NOT_FOUND: 404,
   CONFLICT: 409,
   VALIDATION_FAILED: 422,
+  RATE_LIMITED: 429,
   AI_UNAVAILABLE: 503,
   INTERNAL: 500,
 } as const;
@@ -18,6 +19,7 @@ const DEFAULT_MESSAGE: Record<ErrorCode, string> = {
   NOT_FOUND: "Not found.",
   CONFLICT: "That conflicts with the current state.",
   VALIDATION_FAILED: "The request is not valid.",
+  RATE_LIMITED: "Too many requests. Wait a minute and try again.",
   AI_UNAVAILABLE: "The AI service is unavailable right now.",
   INTERNAL: "Something went wrong.",
 };
