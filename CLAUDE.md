@@ -88,6 +88,12 @@ One feature branch per phase; never commit AI-generated changes straight to `mai
 Build order and exit gates: `docs/NOVA_PLAN.md`. Current status: `docs/PROGRESS.md`.
 Frontend files (`apps/web/app/**/page.tsx`, `apps/web/components/**`, `apps/web/styles/**`) are owned by the UI tool; everything else by Claude Code. Do not cross that line without being asked.
 
-## Out of scope
+## Scope
 
-Calendar/email integrations, mobile app, voice, social, teams, autonomous agents, complex ML.
+Core phases 0–12 come first. Extensions (PWA, learning layer, calendar, notifications, voice, share link, native app) are phases 13–19 and do not start before Gate B.
+Not built: team collaboration, multi-agent setups, reading the user's inbox.
+
+## Models and learning
+
+No paid LLM key. All model access goes through `LLMClient` in `packages/ai` (adapters: fake, replay, hosted free tier, Ollama).
+Learned models predict (duration, chance of starting, which intervention helps); the planner still decides. A learned model is only switched on after it beats the simple baseline in a backtest.

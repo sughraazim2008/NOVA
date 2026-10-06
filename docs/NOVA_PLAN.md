@@ -41,7 +41,7 @@ Guiding sentence (protect this through every phase):
 
 ## 2. Locked decisions
 
-The PDF fixes the first five. The rest are choices I made where the PDF is silent; change them in Phase 1 if you disagree, not later.
+The PDF fixes the first five. The rest were proposed where the PDF is silent and **confirmed by the developer on 2026-10-06**.
 
 | Area | Decision | Source |
 |---|---|---|
@@ -50,12 +50,14 @@ The PDF fixes the first five. The rest are choices I made where the PDF is silen
 | ORM | Prisma | PDF |
 | AI | LLM API with structured output | PDF |
 | VCS | Git/GitHub, one feature branch per phase, nothing AI-generated straight onto `main` | PDF |
-| Monorepo | pnpm workspaces (`apps/web`, `packages/*`) | my choice — the PDF's repo layout requires workspaces |
-| Validation | Zod (one schema = runtime validation + TS type) | my choice |
-| Tests | Vitest for packages; Playwright for one end-to-end loop test in Phase 12 | my choice |
-| Auth | Auth.js (NextAuth) with one provider | my choice — PDF only says "authentication" |
-| Styling | Tailwind CSS | my choice |
-| LLM provider | Hidden behind an `LLMClient` interface in `packages/ai`; pick the provider in Phase 1 | my choice — PDF says only "LLM API" |
+| Monorepo | pnpm workspaces (`apps/web`, `packages/*`) | confirmed |
+| Validation | Zod (one schema = runtime validation + TS type) | confirmed |
+| Tests | Vitest for packages; Playwright for one end-to-end loop test in Phase 12 | confirmed |
+| Auth | Auth.js (NextAuth), JWT sessions so a mobile client can reuse them | confirmed |
+| Styling | Tailwind CSS | confirmed |
+| LLM provider | **No paid API key.** One `LLMClient` interface in `packages/ai` with four adapters: `fake` (tests), `replay` (recorded responses for demos), a hosted free tier (deployed app), and a local model via Ollama (offline development). See ADR-004 | confirmed |
+| Clients | API-first backend. Web first, then installable web app (PWA), then optional native app reusing the pure packages | confirmed |
+| Learning | Staged: statistics → bandit → simple predictor → deep model only if it beats the predictor. Models predict; the planner still decides | confirmed |
 
 ### Inconsistencies in the PDF and how this plan resolves them
 
@@ -164,9 +166,28 @@ The PDF fixes the first five. The rest are choices I made where the PDF is silen
 | NFR-8 | No new dependency without a written justification |
 | NFR-9 | The developer can explain: the schema, the TS interfaces, the API flow, how the planner computes a schedule, how LLM output is validated, how events are recorded, how replanning works |
 
-## 5. Out of scope (do not build)
+## 5. Extensions and what stays out
 
-Calendar integrations, email integrations, mobile app, voice assistant, social features, team collaboration, autonomous agents, multi-agent setups, complex ML. Revisit only after Gate B.
+The PDF lists nine things not to build in the MVP. The developer wants every one that is practical. None of them starts before **Gate B**; the core loop has to work first. Phases are in §8.
+
+| PDF "do not build" item | Verdict | How it is included | Phase |
+|---|---|---|---|
+| Mobile application | Yes | Installable web app (PWA) first; native app later, reusing `types`, `planner`, `behaviour`, `simulation` and the same API | 13, 19 |
+| Complex ML | Yes, staged | Learning layer: intervention bandit, completion predictor, optional local fine-tune of a small model on logged corrections | 14 |
+| Calendar integrations | Yes | Read busy time from a calendar to compute real daily capacity; export the daily plan as a calendar feed | 15 |
+| Email integrations | Partly | Outgoing only: daily plan and "you're back" emails. Reading the user's inbox is excluded (restricted permissions need a provider security review) | 16 |
+| Autonomous agents | Partly | A scheduled background run that replans and prepares suggestions. It only proposes; the user confirms. It never breaks the rule that the LLM does not decide | 16 |
+| Voice assistant | Partly | Voice input for goals and friction notes, spoken steps in NOVA START, using the browser's built-in speech features (free, no service) | 17 |
+| Social features | Partly | Read-only share link for one goal's progress, for an accountability partner | 18 |
+| Team collaboration | No | Shared goals, roles and permissions are a different product and would rewrite the data model | — |
+| Dozens of AI agents | No | Adds cost and unpredictability without serving the core loop | — |
+
+Things to do **during the core phases** so the extensions are cheap later:
+
+- Backend is a real HTTP API with token-capable sessions (Phase 3), not UI-only server actions.
+- Daily capacity comes through one function with pluggable sources (Phase 5), so a calendar can feed it.
+- Notifications go through one channel interface (Phase 8).
+- Log what the AI proposed versus what the user confirmed (Phase 4), and which replanning action was applied and whether the task was then started (Phase 9). This is the training data for Phase 14.
 
 ---
 
@@ -350,6 +371,14 @@ One branch per phase. Do the phases in order; each one's exit gate must pass bef
 | 11 | What-if + Rescue Mode | `feature/goal-simulation`, `feature/rescue-mode` | Claude Code + Antigravity | 10 | 7–12 | Rescue Mode triage after inactivity; what-if returns projections and scope alternatives |
 | 12 | Polish, testing, deployment | `chore/release` | both | 11 | 8–15 | E2E test green, README with architecture diagram, deployed URL |
 | | **GATE C — Full vision** | | | | ~55–90+ total | |
+| 13 | Installable web app (PWA) | `feature/pwa` | Antigravity + Claude Code | 12 | 4–8 | Installs to a phone home screen, works at phone width, shows today's plan offline, push notification for the daily plan |
+| 14 | Learning layer | `feature/learning` | Claude Code | 9 (data), 12 | 10–20 | Intervention bandit and completion predictor each beat the Phase 9 statistics in a backtest on logged data, or are not switched on |
+| 15 | Calendar | `feature/calendar` | Claude Code | 5 | 6–10 | Busy time reduces that day's capacity; plan available as a calendar feed |
+| 16 | Notifications, email, background replanning | `feature/notifications` | Claude Code | 9 | 6–10 | Daily plan email; nightly proposal-only replan the user confirms |
+| 17 | Voice | `feature/voice` | Antigravity | 7 | 3–6 | Speak a goal or a friction note; NOVA START can read steps aloud |
+| 18 | Share link | `feature/share` | Claude Code + Antigravity | 10 | 3–5 | Read-only, revocable link to one goal's progress |
+| 19 | Native mobile app | `feature/mobile` | both | 13 | 20–40 | Today and NOVA START running natively against the same API |
+| | **GATE D — Extended product** | | | | | |
 
 ### Week-1 schedule (from the PDF)
 
@@ -363,7 +392,7 @@ One branch per phase. Do the phases in order; each one's exit gate must pass bef
 | 6 | 7 |
 | 7 | Integrate, fix, test the whole loop → Gate A |
 
-Week 2: Phases 8–9 → Gate B. Weeks 3+: Phases 10–12.
+Week 2: Phases 8–9 → Gate B. Weeks 3+: Phases 10–12 → Gate C. Then the extension phases 13–19, in any order that respects the "Depends on" column.
 
 ### Where to spend effort (PDF's priority order)
 
@@ -411,6 +440,14 @@ Copy this into `docs/PROGRESS.md` in Phase 0.
 - [ ] Phase 11 — What-if + Rescue Mode
 - [ ] Phase 12 — Polish, testing, deployment
 - [ ] **Gate C — Full vision**
+- [ ] Phase 13 — Installable web app (PWA)
+- [ ] Phase 14 — Learning layer
+- [ ] Phase 15 — Calendar
+- [ ] Phase 16 — Notifications, email, background replanning
+- [ ] Phase 17 — Voice
+- [ ] Phase 18 — Share link
+- [ ] Phase 19 — Native mobile app
+- [ ] **Gate D — Extended product**
 
 ## 11. The demo this is all building toward
 

@@ -457,6 +457,118 @@ Done when: CI is green, the deployed URL runs the full demo, and docs/PROGRESS.m
 
 ---
 
+## Extension phases (after Gate B; see NOVA_PLAN.md §5)
+
+Each of these uses the same session header, close-out and understanding check as the core phases.
+
+### Phase 13 — Installable web app (PWA) **[AG] + [CC]**
+
+Branch: `feature/pwa`
+
+```
+Phase 13: make NOVA installable on a phone. No native code.
+
+[CC] Web app manifest, icons, a service worker that caches the app shell and the last fetched Today plan (read-only offline; actions queue and sync when back online, with conflicts resolved server-side by timestamp). Web push: subscription storage, a send function behind the notification channel interface, one notification type ("Your plan for today is ready"). Justify any service-worker library before adding it.
+
+[AG] Every screen usable at 360px width with thumb-reachable primary actions; an "Install NOVA" prompt; an offline banner; NOVA START full-screen in standalone mode.
+
+Tests: queued offline actions replay exactly once; a stale offline action never overwrites a newer server state.
+
+Done when: installed on a real phone from the deployed URL, Today opens with the network off, and a push notification arrives.
+```
+
+### Phase 14 — Learning layer **[CC]**
+
+Branch: `feature/learning`
+
+```
+Phase 14: learned models that feed the planner as inputs. The planner stays deterministic given those inputs. Nothing is switched on unless it beats the Phase 9 statistics on held-out data.
+
+Part A — backtest harness (build first). Replay the logged event stream day by day; at each point, predict from past data only; score against what actually happened. Metrics: duration error (mean absolute error in minutes), start/completion prediction (log loss and calibration), intervention success rate. Baseline = Phase 9 multipliers and completion rates.
+
+Part B — intervention bandit. For each friction reason, choose among the allowed responses (shrink, split, rewrite, retime, micro-actions) with Thompson sampling over "task was started within 24 hours of the intervention". Per-user counts with a shared prior. Seeded random source injected, so runs are reproducible. Lives in packages/behaviour; the replanner receives the chosen action as input.
+
+Part C — completion predictor. Logistic regression (then gradient-boosted trees if it helps) predicting P(task started today) from: category, adjusted minutes, hour band, day of week, postponement count, days to deadline, recent streak. Trained across users, with a per-user offset. Output enters the prioritiser as one more named, weighted term and appears in the reason string.
+
+Part D — optional local fine-tune. Export logged pairs (AI-proposed task → user-confirmed task) as a training file; document a LoRA fine-tune of a small open model for the Task Reality Check rewrite step; compare against the un-tuned model on a held-out set. Ship only if better.
+
+A deep sequence model is explicitly deferred until Part C plateaus and there is data from many users.
+
+Tests: no future data leaks into any prediction (unit-tested on the harness); bandit converges on a simulated user with a known best action; predictor is calibrated on synthetic data; planner output is identical when the learned terms are disabled.
+
+Done when: docs/learning.md reports baseline vs each model on the backtest, and each model is enabled or disabled by a flag accordingly.
+```
+
+### Phase 15 — Calendar **[CC]**
+
+Branch: `feature/calendar`
+
+```
+Phase 15: calendar-aware capacity.
+
+Build: a CapacitySource that reads busy intervals from a calendar (start with read-only free/busy; request the narrowest permission available) and subtracts them from the day's working window to give capacity minutes. Tokens encrypted at rest; disconnect deletes them. A private, revocable calendar-feed URL (ICS) exposing today's plan. The pure capacity function takes busy intervals as plain data; fetching lives outside the pure package.
+
+Tests: overlapping and all-day events; events crossing midnight; timezone and daylight-saving boundaries; calendar unreachable falls back to stated capacity and says so in the plan.
+
+Done when: adding a two-hour event to the calendar shrinks tomorrow's plan, with the reason shown.
+```
+
+### Phase 16 — Notifications, email and background replanning **[CC]**
+
+Branch: `feature/notifications`
+
+```
+Phase 16: NOVA reaches out, and prepares work in the background, but never acts without confirmation.
+
+Build: a NotificationChannel interface with push (from Phase 13) and email implementations; user preferences per channel and quiet hours. Emails: daily plan, and a "you're back" message after inactivity that links to Rescue Mode (no guilt wording, no task counts). A scheduled nightly job per user: run end-of-day, run the replanner, compute projections, and store the result as a PROPOSAL the user accepts, edits or dismisses on next open. The job is idempotent and never deletes or drops work on its own. Outgoing email only; never read the user's inbox.
+
+Tests: job run twice produces one proposal; quiet hours respected; unsubscribe honoured; a dismissed proposal changes nothing.
+
+Done when: a simulated missed day produces one email and one pending proposal the next morning.
+```
+
+### Phase 17 — Voice **[AG]**
+
+Branch: `feature/voice`
+
+```
+Phase 17: voice as an input and output option, using the browser's built-in speech recognition and speech synthesis only. No new service, no audio stored.
+
+Build: a microphone button on the goal entry field and the friction note; transcribed text lands in the same field and goes through the same validation as typed text. In NOVA START, an optional "read steps aloud" toggle and voice commands "done", "stuck", "skip". Graceful fallback where the browser lacks support.
+
+Done when: verified in the browser — a goal can be created and a NOVA START session completed without typing.
+```
+
+### Phase 18 — Share link **[CC] + [AG]**
+
+Branch: `feature/share`
+
+```
+Phase 18: accountability sharing, read-only.
+
+Build: per-goal share link with an unguessable token, revocable, optional expiry. The public page shows goal title, progress, health status and projected date only: no task text unless the owner opts in, no behaviour or friction data ever. Rate-limited, not indexed by search engines.
+
+Tests: revoked and expired links return not-found; the public response never contains private fields (assert on the full response shape); another user's goal cannot be shared.
+
+Done when: a link opened in a private window shows progress, and stops working when revoked.
+```
+
+### Phase 19 — Native mobile app **[CC] + [AG]**
+
+Branch: `feature/mobile`
+
+```
+Phase 19: native app, only after the PWA has shown what a native app must add.
+
+First write docs/decisions/ADR-mobile.md: what the PWA cannot do that justifies this, and the framework choice (React Native with Expo is the default because it reuses TypeScript and the @nova/types, planner, behaviour and simulation packages unchanged).
+
+Build apps/mobile: sign-in against the existing API with the token flow, Today, NOVA START, friction sheet, Rescue Mode, native notifications. No business logic in the app: it calls the API and may run the pure packages for instant previews.
+
+Done when: the Gate A loop runs end to end on a phone simulator against the deployed API.
+```
+
+---
+
 ## Reusable prompts
 
 ### Close-out (run at the end of every phase)
