@@ -1,0 +1,359 @@
+// NOVA database schema. Design and rationale: docs/architecture.md section 4.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../packages/database/src/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum MilestoneStatus {
+  PENDING
+  ACTIVE
+  DONE
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  DEFERRED
+  DROPPED
+}
+
+enum TaskCategory {
+  WRITING
+  READING
+  STUDY
+  PRACTICE
+  CODING
+  RESEARCH
+  ADMIN
+  COMMUNICATION
+  PLANNING
+  OTHER
+}
+
+enum EnergyDemand {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskOrigin {
+  USER
+  AI
+  SPLIT
+  BLOCKER
+}
+
+enum DailyOutcome {
+  PENDING
+  COMPLETED
+  PARTIAL
+  SKIPPED
+  POSTPONED
+  MISSED
+}
+
+enum StartSessionOutcome {
+  COMPLETED
+  PARTIAL
+  ABANDONED
+}
+
+enum EventType {
+  TASK_CREATED
+  TASK_STARTED
+  TASK_COMPLETED
+  TASK_SKIPPED
+  TASK_POSTPONED
+  TASK_ABANDONED
+  FRICTION_REPORTED
+  ESTIMATE_OVERRUN
+  ESTIMATE_UNDERRUN
+  DECOMPOSITION_CONFIRMED
+  REPLAN_APPLIED
+}
+
+enum FrictionReason {
+  TOO_OVERWHELMING
+  DONT_KNOW_HOW_TO_START
+  LOW_ENERGY
+  DISTRACTED
+  DONT_UNDERSTAND
+  DONT_WANT_TO
+  NOT_ENOUGH_TIME
+}
+
+enum ReplanActionType {
+  SHRINK
+  SPLIT
+  REWRITE
+  MICRO_ACTIONS
+  RETIME
+  REPRIORITISE
+  DEFER
+  DROP_SUGGESTED
+}
+
+enum HealthStatus {
+  ON_TRACK
+  AT_RISK
+  OFF_TRACK
+}
+
+enum EstimateDimension {
+  CATEGORY
+  SIZE_BUCKET
+  HOUR_BAND
+}
+
+enum GameMode {
+  FULL
+  QUIET
+  OFF
+}
+
+model User {
+  id                      String    @id @default(cuid())
+  email                   String    @unique
+  name                    String?
+  timezone                String    @default("UTC")
+  defaultDailyCapacityMin Int       @default(120)
+  lastActiveAt            DateTime?
+  gameMode                GameMode  @default(FULL)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  goals              Goal[]
+  dailyPlans         DailyPlan[]
+  startSessions      StartSession[]
+  behaviourEvents    BehaviourEvent[]
+  frictionEvents     FrictionEvent[]
+  executionEstimates ExecutionEstimate[]
+}
+
+model Goal {
+  id               String     @id @default(cuid())
+  userId           String
+  title            String
+  description      String?
+  desiredOutcome   String?
+  deadline         DateTime   @db.Date
+  priority         Priority   @default(MEDIUM)
+  dailyCapacityMin Int
+  constraints      String?
+  status           GoalStatus @default(ACTIVE)
+  sourceText       String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  milestones      Milestone[]
+  tasks           Task[]
+  behaviourEvents BehaviourEvent[]
+  projections     GoalProjection[]
+
+  @@index([userId, status])
+}
+
+model Milestone {
+  id         String          @id @default(cuid())
+  goalId     String
+  title      String
+  order      Int
+  targetDate DateTime?       @db.Date
+  status     MilestoneStatus @default(PENDING)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  goal  Goal   @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  tasks Task[]
+
+  @@unique([goalId, order])
+}
+
+model Task {
+  id            String       @id @default(cuid())
+  milestoneId   String
+  // Stored as well as derived from the milestone, so the planner's main query needs no join.
+  goalId        String
+  parentTaskId  String?
+  title         String
+  description   String?
+  estimatedMin  Int
+  actualMin     Int?
+  priority      Priority     @default(MEDIUM)
+  category      TaskCategory @default(OTHER)
+  energyDemand  EnergyDemand @default(MEDIUM)
+  deadline      DateTime?    @db.Date
+  status        TaskStatus   @default(TODO)
+  deferredUntil DateTime?    @db.Date
+  origin        TaskOrigin   @default(USER)
+  startCount    Int          @default(0)
+  postponeCount Int          @default(0)
+  completedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  milestone Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  goal      Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  parent    Task?     @relation("TaskSplit", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  children  Task[]    @relation("TaskSplit")
+
+  dependsOn       TaskDependency[] @relation("DependentTask")
+  dependedOnBy    TaskDependency[] @relation("PrerequisiteTask")
+  dailyTasks      DailyTask[]
+  startSessions   StartSession[]
+  behaviourEvents BehaviourEvent[]
+  frictionEvents  FrictionEvent[]
+
+  @@index([goalId, status])
+  @@index([milestoneId])
+}
+
+model TaskDependency {
+  taskId          String
+  dependsOnTaskId String
+  createdAt       DateTime @default(now())
+
+  task      Task @relation("DependentTask", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOn Task @relation("PrerequisiteTask", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, dependsOnTaskId])
+  @@index([dependsOnTaskId])
+}
+
+model DailyPlan {
+  id             String   @id @default(cuid())
+  userId         String
+  date           DateTime @db.Date
+  capacityMin    Int
+  usedMin        Int
+  plannerVersion String
+  generatedAt    DateTime @default(now())
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks DailyTask[]
+
+  @@unique([userId, date])
+}
+
+model DailyTask {
+  id          String       @id @default(cuid())
+  dailyPlanId String
+  taskId      String
+  order       Int
+  plannedMin  Int
+  score       Float
+  reason      String
+  outcome     DailyOutcome @default(PENDING)
+
+  dailyPlan DailyPlan @relation(fields: [dailyPlanId], references: [id], onDelete: Cascade)
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([dailyPlanId, taskId])
+  @@index([taskId])
+}
+
+model StartSession {
+  id          String               @id @default(cuid())
+  userId      String
+  taskId      String
+  // Validated by StartStepsSchema in @nova/types on every read and write.
+  steps       Json
+  currentStep Int                  @default(0)
+  stuckCount  Int                  @default(0)
+  startedAt   DateTime             @default(now())
+  endedAt     DateTime?
+  outcome     StartSessionOutcome?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startedAt])
+  @@index([taskId])
+}
+
+// Append-only. Rows are never updated.
+model BehaviourEvent {
+  id         String    @id @default(cuid())
+  userId     String
+  taskId     String?
+  goalId     String?
+  type       EventType
+  occurredAt DateTime  @default(now())
+  // Validated per event type by the payload schemas in @nova/types.
+  payload    Json
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  goal Goal? @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
+  @@index([userId, occurredAt])
+  @@index([userId, type])
+  @@index([taskId])
+}
+
+model FrictionEvent {
+  id            String            @id @default(cuid())
+  userId        String
+  taskId        String
+  reason        FrictionReason
+  note          String?
+  occurredAt    DateTime          @default(now())
+  appliedAction ReplanActionType?
+  startedAfter  Boolean?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([userId, occurredAt])
+  @@index([taskId])
+}
+
+model ExecutionEstimate {
+  id             String            @id @default(cuid())
+  userId         String
+  dimension      EstimateDimension
+  key            String
+  multiplier     Float             @default(1)
+  completionRate Float             @default(0)
+  sampleSize     Int               @default(0)
+  updatedAt      DateTime          @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dimension, key])
+}
+
+model GoalProjection {
+  id                String       @id @default(cuid())
+  goalId            String
+  computedAt        DateTime     @default(now())
+  projectedDate     DateTime     @db.Date
+  status            HealthStatus
+  requiredMinPerDay Int
+  remainingMin      Int
+  explanation       String
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId, computedAt])
+}
