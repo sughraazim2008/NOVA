@@ -96,3 +96,19 @@ export async function deleteTask(db: Db, userId: string, taskId: string): Promis
   const { count } = await db.task.deleteMany({ where: { id: taskId, goal: { userId } } });
   return count > 0;
 }
+
+/** A task with the target date of its milestone, which the planner uses to break ties. */
+export type TaskWithMilestoneDate = Task & { milestoneTargetDate: string | null };
+
+/** Every task of the user's goals, finished ones included, so the planner can resolve dependencies. */
+export async function listTasksForPlanning(db: Db, userId: string): Promise<TaskWithMilestoneDate[]> {
+  const rows = await db.task.findMany({
+    where: { goal: { userId } },
+    include: { milestone: { select: { targetDate: true } } },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  });
+  return rows.map(({ milestone, ...row }) => ({
+    ...toTask(row),
+    milestoneTargetDate: milestone.targetDate ? milestone.targetDate.toISOString().slice(0, 10) : null,
+  }));
+}
