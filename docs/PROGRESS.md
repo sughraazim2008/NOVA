@@ -6,7 +6,7 @@ Build order and exit gates: [NOVA_PLAN.md §8](NOVA_PLAN.md). Update this file a
 - [x] Phase 1 — Architecture (reviewed and approved)
 - [x] Phase 2 — Database + domain model
 - [x] Phase 3 — Goal system
-- [x] Phase 4 — AI decomposition + Task Reality Check (built; real-model check pending a provider)
+- [x] Phase 4 — AI decomposition + Task Reality Check (first real-model run done; prompt tuning still to do)
 - [x] Phase 5 — Planning engine
 - [ ] Phase 6 — Daily planner UI
 - [ ] Phase 7 — NOVA START
@@ -213,3 +213,25 @@ Not built: the Today screen (Phase 6). The plan is reachable through the API onl
 ### Note on Phase 4
 
 The first call to a real model (Groq) on 2026-10-07 was rejected with HTTP 401: the key saved in `.env` is 54 characters, and Groq keys are 56, so it was most likely cut short when pasted. The AI path is therefore still unverified against a real model.
+
+### Phase 4 follow-up — first run against a real model (2026-10-07)
+
+Provider: Groq free tier, model `openai/gpt-oss-120b`, JSON-object mode.
+
+What it took to get there:
+
+- The key problem was not in NOVA. The first key had been deleted on Groq's side, and a later paste had not been saved to `.env`. Once a live key was on disk, Groq accepted it.
+- The model first chosen, `llama-3.3-70b-versatile`, is not available to this account (HTTP 404). The model was changed after listing what the account can use.
+- The free tier's per-minute limit was reached on the sixth call of one decomposition. The adapter now waits for the time the provider asks (its `Retry-After` header, or a doubling back-off), up to three times and at most 30 seconds each, before reporting the model as unavailable. Three unit tests cover this.
+
+Result for "I want to learn to cook five dinners by the end of November": a valid draft with 5 milestones and 25 tasks (8.9 hours). Every step passed validation on the first attempt except the reality check, which needed its one retry. Total time about 110 seconds, most of it waiting on the rate limit.
+
+Quality, judged by reading the output (one sentence only, so these are observations, not measurements):
+
+- Good: tasks are concrete and startable; milestones are in a sensible order with realistic dates; durations are plausible.
+- Weak: the reality check passed everything, including "Cook remaining four dinners following their recipes · 90 min", which is four sittings and should have been split.
+- Weak: every task depends on the one before it, although the prompt asks for real prerequisites only. This would leave the planner one eligible task at a time.
+- Weak: the last milestone ("Review & Share" with friends) is not something the sentence asked for.
+- Slow: about two minutes per goal on the free tier. The decompose route allows 120 seconds, which is too close.
+
+To do when work resumes: tighten the task-generator and reality-check prompts for the three weak points and bump their versions; run a set of ten sentences rather than one; consider generating all tasks in one call to stay under the rate limit and cut the time.

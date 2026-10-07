@@ -111,10 +111,42 @@ describe("OpenAICompatibleClient", () => {
     expect(calls[0]!.body.response_format).toEqual({ type: "json_object" });
   });
 
+  it("waits as long as the provider asks when rate-limited, then succeeds", async () => {
+    const waits: number[] = [];
+    let calls = 0;
+    const respond = () => {
+      calls += 1;
+      return calls < 3 ? new Response("{}", { status: 429, headers: { "retry-after": "7" } }) : reply('{"answer": 4}');
+    };
+    const { llm } = client(respond, { sleep: async (ms: number) => void waits.push(ms) });
+    expect(await llm.generate(request)).toEqual({ ok: true, value: { answer: 4 } });
+    expect(calls).toBe(3);
+    expect(waits).toEqual([7250, 7250]);
+  });
+
+  it("backs off by itself when no wait is given, and never waits longer than the cap", async () => {
+    const waits: number[] = [];
+    const noHeader = client(() => reply(null, 429), { sleep: async (ms: number) => void waits.push(ms) });
+    await noHeader.llm.generate(request);
+    expect(waits).toEqual([2250, 4250, 8250]);
+
+    const capped: number[] = [];
+    const longWait = () => new Response("{}", { status: 429, headers: { "retry-after": "600" } });
+    await client(longWait, { sleep: async (ms: number) => void capped.push(ms), maxRateLimitWaitMs: 5000 }).llm.generate(request);
+    expect(capped).toEqual([5000, 5000, 5000]);
+  });
+
+  it("gives up after the allowed number of waits and reports the rate limit", async () => {
+    const { llm, calls } = client(() => reply(null, 429), { sleep: async () => {}, rateLimitRetries: 2 });
+    const result = await llm.generate(request);
+    expect(result).toEqual({ ok: false, error: { kind: "UNAVAILABLE", message: "The model service answered with rate limit reached" } });
+    expect(calls).toHaveLength(3);
+  });
+
   it("reports rate limits, server errors and network failures as unavailable", async () => {
     const cases = [() => reply(null, 429), () => reply(null, 500), () => Promise.reject(new Error("ECONNREFUSED"))];
     for (const respond of cases) {
-      const result = await client(respond).llm.generate(request);
+      const result = await client(respond, { sleep: async () => {} }).llm.generate(request);
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.error.kind).toBe("UNAVAILABLE");
     }

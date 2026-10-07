@@ -14,7 +14,20 @@ export interface OpenAICompatibleOptions {
    */
   jsonMode?: "schema" | "object";
   timeoutMs?: number;
+  /** How many times to wait and try again when the provider says "too many requests". Default 3. */
+  rateLimitRetries?: number;
+  /** Longest single wait for a rate limit to clear, in milliseconds. Default 30 seconds. */
+  maxRateLimitWaitMs?: number;
   fetch?: typeof fetch;
+  /** Injectable so tests do not really wait. */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+/** How long the provider asked us to wait, from its Retry-After header (seconds), within sensible bounds. */
+function retryDelayMs(response: Response, attempt: number, maxMs: number): number {
+  const seconds = Number(response.headers.get("retry-after"));
+  const asked = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 2000 * 2 ** attempt;
+  return Math.min(maxMs, Math.ceil(asked) + 250);
 }
 
 const ResponseSchema = z.object({
@@ -54,16 +67,25 @@ export class OpenAICompatibleClient implements LLMClient {
           : { type: "json_object" },
     };
 
+    const { rateLimitRetries = 3, maxRateLimitWaitMs = 30_000 } = this.options;
+    const sleep = this.options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+
+    // Free tiers allow only so much per minute, and one decomposition is several calls in a row.
+    // A "too many requests" answer is therefore expected: wait as long as the provider asks, then try again.
     let response: Response;
-    try {
-      response = await (this.options.fetch ?? fetch)(`${baseUrl.replace(/\/+$/, "")}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-    } catch (cause) {
-      return err({ kind: "UNAVAILABLE", message: `Could not reach the model: ${cause instanceof Error ? cause.message : String(cause)}` });
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        response = await (this.options.fetch ?? fetch)(`${baseUrl.replace(/\/+$/, "")}/chat/completions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+      } catch (cause) {
+        return err({ kind: "UNAVAILABLE", message: `Could not reach the model: ${cause instanceof Error ? cause.message : String(cause)}` });
+      }
+      if (response.status !== 429 || attempt >= rateLimitRetries) break;
+      await sleep(retryDelayMs(response, attempt, maxRateLimitWaitMs));
     }
 
     if (!response.ok) {
