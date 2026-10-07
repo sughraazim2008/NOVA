@@ -7,7 +7,7 @@ Build order and exit gates: [NOVA_PLAN.md §8](NOVA_PLAN.md). Update this file a
 - [x] Phase 2 — Database + domain model
 - [x] Phase 3 — Goal system
 - [x] Phase 4 — AI decomposition + Task Reality Check (built; real-model check pending a provider)
-- [ ] Phase 5 — Planning engine
+- [x] Phase 5 — Planning engine
 - [ ] Phase 6 — Daily planner UI
 - [ ] Phase 7 — NOVA START
 - [ ] **Gate A — Working Loop demo**
@@ -179,3 +179,37 @@ Differences from the prompts and decisions made while building:
 - Rate limiting is in memory, per server process.
 
 Dependencies introduced: none beyond `zod`, now also a direct dependency of `packages/ai` and the root (tests).
+
+### Phase 5 — Planning engine (2026-10-07)
+
+Built:
+
+- `packages/planner`: dependency graph (build, cycle detection, topological order, unblocked tasks, downstream count), capacity, scoring with six weighted terms, deterministic ordering with three tie-breakers, capacity fill with a task cap, and a reason sentence for every planned task. All constants are in `weights.ts`.
+- `apps/web/server/services/planning.ts`: loads goals, tasks and dependencies, runs the planner, stores the plan, and reports why a plan is empty and which tasks need splitting.
+- `GET /api/plan/today` and `POST /api/plan/today/regenerate`.
+
+Requirement check (FR-3.1 to FR-3.6):
+
+| Requirement | Result |
+|---|---|
+| FR-3.1 dependency resolver with cycle detection | met |
+| FR-3.2 capacity calculation | met |
+| FR-3.3 deterministic score from pressure, priority, overdue, progress, risk | met; "milestone progress" enters as the tie-break on milestone date, and risk is wired but zero until Phase 10 |
+| FR-3.4 scheduler, including 120 min with A=60, B=40, C=30 → A + B | met |
+| FR-3.5 at most five tasks, each with a reason | met |
+| FR-3.6 plan persisted and regenerated on demand | met |
+| FR-3.7 historical execution data | interface in place (`multipliers`), filled in Phase 9 |
+
+Verified: 47 planner unit tests and 17 planning integration tests (180 unit and 96 integration in total). The unit tests include all 13 worked examples from `planning-engine.md` and a property test that checks the seven guarantees (deterministic under shuffling, never over capacity, never blocked, bounded, every task accounted for, every choice explained, input not mutated) on 300 generated inputs. An integration test installs a model that throws if called, proving the planner never touches the AI.
+
+On the seeded internship goal (90 minutes available) the plan is: list past projects (25 min, unblocks 8 tasks), choose three projects to showcase (20 min, unblocks 7), list fifteen companies (45 min, unblocks 5). Sixteen tasks are correctly held back as blocked.
+
+Two test expectations I wrote about reason wording were wrong and were corrected to match the specified rule (largest contribution first); no planner code changed as a result.
+
+Changes from the design are listed in `planning-engine.md` section 10. No dependencies were introduced.
+
+Not built: the Today screen (Phase 6). The plan is reachable through the API only.
+
+### Note on Phase 4
+
+The first call to a real model (Groq) on 2026-10-07 was rejected with HTTP 401: the key saved in `.env` is 54 characters, and Groq keys are 56, so it was most likely cut short when pasted. The AI path is therefore still unverified against a real model.

@@ -1,6 +1,6 @@
 # NOVA — Planning Engine
 
-Status: **approved 2026-10-06.** Implemented in Phase 5 (`packages/planner`). Every worked example in §7 becomes a unit test.
+Status: **approved 2026-10-06, implemented 2026-10-07** in `packages/planner`. Every worked example in §7 is a unit test with the same number in `tests/planner/scheduler.test.ts`. Section 10 lists what changed between this design and the code.
 
 ## 1. What the planner is
 
@@ -381,3 +381,23 @@ None of these changes the signature of `generateDailyPlan`.
 - **No time-of-day placement.** Order and minutes only.
 - **Weights are judgement, not learned.** They are constants in one file, and the worked examples pin their behaviour. Phase 14 is where data can argue with them.
 - **Pressure assumes steady daily work.** A goal with no work done for a week shows rising pressure, which is intended, but it does not yet know about planned days off.
+
+## 10. Changes made during implementation
+
+The algorithm is as designed. These details were settled or added while building it:
+
+- **`PlannerGoal.title`** was added, because reasons name the goal.
+- **`handledTodayTaskIds`** was added to the input, with the exclusion reason `HANDLED_TODAY`. A task the user completed in part, skipped or postponed today is not planned again today when the plan is rebuilt. It sits between `BLOCKED` and eligibility in step 1.
+- **Reasons** say only what explains something. Medium and low priority produce no phrase (a high-priority goal does: "… is a high-priority goal"). When a task's pressure comes from its own deadline and that deadline has passed, only "its deadline has passed" is said. The two phrases are ordered by how many points each contributed. If nothing stands out, the reason is `Next in line for "<goal>".`
+- **Reason wording** is "it is due in 3 days", "it is due tomorrow", "it unblocks 2 other tasks", `"<goal>" needs about 30 min a day to stay on schedule`.
+- **Goal pressure** is 1 when the goal has work left and no time left (deadline passed, or zero minutes a day), and 0 when no work is left.
+- **Input errors** carry a code: `CYCLE`, `UNKNOWN_TASK`, `UNKNOWN_GOAL`, `SELF_DEPENDENCY`, `INVALID_NUMBER`, `DUPLICATE_ID`.
+- **Capacity** takes an optional `busyMin`, always 0 for now, which is where calendar time will come in.
+
+### How the plan is stored (the planning service)
+
+- The first request of the day runs the planner and saves the result. Reading the plan again returns the saved plan unchanged; a day is not reshuffled behind the user's back.
+- Rebuilding is explicit (`POST /api/plan/today/regenerate`). Entries the user already acted on stay first; time spent on completed or partly completed entries is subtracted from the day before the planner runs; skipped and postponed entries spend no time.
+- An empty plan carries a reason: `NO_GOALS`, `ALL_DONE`, `NO_CAPACITY` or `NOTHING_ELIGIBLE`.
+- Tasks excluded with `needsSplit` are returned alongside the plan so the screen can say "too big for one day".
+- Each planner run writes one log line with the planned tasks, their scores and reasons, and a count of exclusions by cause.
