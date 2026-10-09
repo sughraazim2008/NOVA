@@ -6,7 +6,7 @@ import { getSessionUserId } from "@/server/auth/session";
 export const metadata = { title: "Sign in · NOVA" };
 
 export default async function SignInPage() {
-  if (await getSessionUserId()) redirect("/dashboard");
+  if (await getSessionUserId()) redirect("/today");
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 px-6">
@@ -20,7 +20,7 @@ export default async function SignInPage() {
           <form
             action={async () => {
               "use server";
-              await signIn("github", { redirectTo: "/dashboard" });
+              await signIn("github", { redirectTo: "/today" });
             }}
           >
             <Button type="submit" variant="primary" className="w-full">
@@ -33,7 +33,7 @@ export default async function SignInPage() {
           <form
             action={async () => {
               "use server";
-              await signIn("dev", { redirectTo: "/dashboard" });
+              await signIn("dev", { redirectTo: "/today" });
             }}
           >
             <Button type="submit" variant={githubSignInEnabled ? "secondary" : "primary"} className="w-full">

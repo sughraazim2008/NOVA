@@ -1,19 +1,10 @@
-import Link from "next/link";
-import { EmptyState } from "@/components/ui";
+import { TodayView } from "@/components/planner/today-view";
+import { pageUser } from "@/server/auth/page-user";
+import { getTodayPlan } from "@/server/services/planning";
 
 export const metadata = { title: "Today · NOVA" };
 
-export default function TodayPage() {
-  return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Today</h1>
-      <EmptyState title="Your daily plan will appear here">
-        The planning engine is the next thing being built. Until then, set up your{" "}
-        <Link href="/goals" className="text-indigo-600 underline">
-          goals and tasks
-        </Link>
-        .
-      </EmptyState>
-    </div>
-  );
+export default async function TodayPage() {
+  const user = await pageUser();
+  return <TodayView plan={await getTodayPlan(user)} />;
 }

@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-neutral-50">
       <header className="border-b border-neutral-200 bg-white">
         <div className="mx-auto flex max-w-3xl items-center gap-4 px-4 py-3 sm:gap-6">
-          <Link href="/dashboard" className="text-lg font-semibold tracking-tight">
+          <Link href="/today" className="text-lg font-semibold tracking-tight">
             NOVA
           </Link>
           <nav className="flex flex-1 gap-1 text-sm">
