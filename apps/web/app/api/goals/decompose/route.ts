@@ -4,8 +4,8 @@ import { json, readJson, route } from "@/server/http";
 import { rateLimit } from "@/server/rate-limit";
 import { decompose } from "@/server/services/decomposition";
 
-// A decomposition is several model calls in a row.
-export const maxDuration = 120;
+// A decomposition is four model calls in a row, usually 10 to 20 seconds in total.
+export const maxDuration = 60;
 
 /** Sentence → draft goal, milestones and tasks. Saves nothing; the draft goes back for review. */
 export const POST = route(async (request) => {

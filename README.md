@@ -4,7 +4,7 @@ NOVA transforms long-term goals into adaptive daily execution plans. Unlike trad
 
 NOVA goes one step further: its planner does not stop when it gives the user a task. NOVA helps the user start the task, detects friction when execution fails, and adapts future plans based on how the user actually works.
 
-> **Status: in progress.** Sign-in, the goal system and AI decomposition are built: describe a goal in a sentence, review the proposed milestones and tasks, and save. Without a model configured it runs in sample mode with two example sentences. The planning engine is built and tested and serves a daily plan through the API; the Today screen comes next. See [docs/PROGRESS.md](docs/PROGRESS.md).
+> **Status: in progress.** Working today: sign-in, goals with milestones and prerequisites, describing a goal in a sentence and reviewing the AI's breakdown, a deterministic daily plan, and a Today page to start, finish, skip or postpone tasks. NOVA START (guided first steps) comes next. See [docs/PROGRESS.md](docs/PROGRESS.md); to put it online, see [docs/deploy.md](docs/deploy.md).
 
 ## Core loop
 

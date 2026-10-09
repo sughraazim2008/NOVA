@@ -8,7 +8,7 @@ Build order and exit gates: [NOVA_PLAN.md §8](NOVA_PLAN.md). Update this file a
 - [x] Phase 3 — Goal system
 - [x] Phase 4 — AI decomposition + Task Reality Check (first real-model run done; prompt tuning still to do)
 - [x] Phase 5 — Planning engine
-- [ ] Phase 6 — Daily planner UI
+- [x] Phase 6 — Daily planner UI
 - [ ] Phase 7 — NOVA START
 - [ ] **Gate A — Working Loop demo**
 - [ ] Phase 8 — Behaviour tracking
@@ -235,3 +235,41 @@ Quality, judged by reading the output (one sentence only, so these are observati
 - Slow: about two minutes per goal on the free tier. The decompose route allows 120 seconds, which is too close.
 
 To do when work resumes: tighten the task-generator and reality-check prompts for the three weak points and bump their versions; run a set of ten sentences rather than one; consider generating all tasks in one call to stay under the rate limit and cut the time.
+
+### AI prompt revision (2026-10-09)
+
+Addressed the weak points from the first real run:
+
+- **One call for all tasks** instead of one per milestone. A decomposition is now four model calls. On Groq's free tier the same sentence went from about 110 seconds to about 13, with no rate-limit waits.
+- **Task generator (version 2):** repeated work must be one task per sitting; prerequisites only when a task needs another's result; nothing outside the goal.
+- **Decomposer (version 2):** no stages the person did not ask for.
+- **Reality check (version 2):** told to split tasks that hide several sittings, with the failing example from the first run included.
+
+Result for the same sentence ("learn to cook five dinners by the end of November"): 5 milestones, 15 tasks, 6.9 hours; each dinner is its own 45-minute task; no invented final stage; 7 of 15 tasks have a prerequisite, where before all but one did. This is still one sentence read by eye, not a measured evaluation. A ten-sentence comparison remains to be done.
+
+### Phase 6 — Daily planner UI (2026-10-09)
+
+Built:
+
+- **Task actions** with routes and a service: start, complete (optionally with minutes spent), reopen, skip for today, postpone (tomorrow by default). Each changes the task and today's plan entry in one transaction and calls a behaviour hook that Phase 8 will fill.
+- **Today page**, now the landing page: one focus card with the first task and a large Start button; after starting, the same card offers Done. The rest of the plan sits below as "Then", each with its reason behind a "More" toggle. Handled tasks move to a quiet list with Undo for completions. No overdue list anywhere.
+- **Completion feedback** (FR-8.1): a tick that pops with an expanding ring, shown the moment Done is pressed, before the server answers. One reusable component for the game layer to build on. It respects the reduce-motion setting.
+- **Empty states** for no goals, nothing eligible, no time today, and everything done; a note for tasks too big for one day.
+- The account's timezone now follows the device.
+
+Requirement check:
+
+| Requirement | Result |
+|---|---|
+| FR-4.1 plan with duration and reason | met |
+| FR-4.2 complete, skip, postpone from Today | met, plus start, undo and "already done" |
+| FR-4.3 next action obvious, no overdue wall | met |
+| FR-8.1 immediate feedback on completion | met for tasks; steps arrive with NOVA START |
+
+Verified: 12 new integration tests, including a whole day from first plan to last task (185 unit and 108 integration in total), and by hand in the browser on desktop and at phone width: start, done with the animation, the list reflowing, undo.
+
+Decisions: "Start" marks the task in progress for now; Phase 7 replaces it with the NOVA START session. Optimistic updates are limited to the completion moment; other actions wait for the server, which is fast enough locally.
+
+### Deployment preparation (2026-10-09)
+
+Added `apps/web/vercel.json`, the `DEMO_SIGNIN` switch, and `docs/deploy.md`. A production build was run locally and checked: with the switch on, the sign-in page offers the demo account; with it off and no GitHub credentials, sign-in is closed; API routes answer 401 without a session. The deployment itself needs the owner's Vercel account and has not been performed.

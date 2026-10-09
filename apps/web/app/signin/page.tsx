@@ -39,7 +39,7 @@ export default async function SignInPage() {
             <Button type="submit" variant={githubSignInEnabled ? "secondary" : "primary"} className="w-full">
               Continue as demo user
             </Button>
-            <p className="mt-2 text-xs text-neutral-500">Development only. This button does not exist in production.</p>
+            <p className="mt-2 text-xs text-neutral-500">A shared demo account for trying NOVA. Do not put anything private in it.</p>
           </form>
         ) : null}
 
