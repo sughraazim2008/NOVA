@@ -45,3 +45,21 @@ export async function saveDailyPlan(db: Db, userId: string, input: SaveDailyPlan
     return toDailyPlan(row);
   });
 }
+
+/**
+ * Records what happened today to a task in today's plan. Returns false when the task is not
+ * in that day's plan, which is not an error: a task can be completed from the goal page too.
+ */
+export async function setDailyOutcome(
+  db: Db,
+  userId: string,
+  date: IsoDate,
+  taskId: string,
+  outcome: DailyPlan["tasks"][number]["outcome"],
+): Promise<boolean> {
+  const { count } = await db.dailyTask.updateMany({
+    where: { taskId, dailyPlan: { userId, date: fromIsoDate(date) } },
+    data: { outcome },
+  });
+  return count > 0;
+}

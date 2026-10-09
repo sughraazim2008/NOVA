@@ -112,3 +112,48 @@ export async function listTasksForPlanning(db: Db, userId: string): Promise<Task
     milestoneTargetDate: milestone.targetDate ? milestone.targetDate.toISOString().slice(0, 10) : null,
   }));
 }
+
+/**
+ * Marks a task finished. `actualMin`, when given, is added to any time already recorded.
+ * Returns null when the task does not exist or belongs to someone else.
+ */
+export async function completeTask(
+  db: Db,
+  userId: string,
+  taskId: string,
+  args: { now: IsoDateTime; actualMin?: number },
+): Promise<Task | null> {
+  const { count } = await db.task.updateMany({
+    where: { id: taskId, goal: { userId } },
+    data: {
+      status: "DONE",
+      completedAt: new Date(args.now),
+      deferredUntil: null,
+      ...(args.actualMin === undefined ? {} : { actualMin: { increment: args.actualMin } }),
+    },
+  });
+  if (count === 0) return null;
+  // `increment` leaves a null column null, so set it outright the first time.
+  if (args.actualMin !== undefined) {
+    await db.task.updateMany({ where: { id: taskId, actualMin: null }, data: { actualMin: args.actualMin } });
+  }
+  return getTask(db, userId, taskId);
+}
+
+/** Moves a task to a later date and counts the postponement. */
+export async function postponeTask(db: Db, userId: string, taskId: string, until: string): Promise<Task | null> {
+  const { count } = await db.task.updateMany({
+    where: { id: taskId, goal: { userId } },
+    data: { status: "DEFERRED", deferredUntil: fromIsoDate(until), postponeCount: { increment: 1 } },
+  });
+  return count === 0 ? null : getTask(db, userId, taskId);
+}
+
+/** Records that the user began a task. */
+export async function startTask(db: Db, userId: string, taskId: string): Promise<Task | null> {
+  const { count } = await db.task.updateMany({
+    where: { id: taskId, goal: { userId }, status: { in: ["TODO", "IN_PROGRESS", "DEFERRED"] } },
+    data: { status: "IN_PROGRESS", deferredUntil: null, startCount: { increment: 1 } },
+  });
+  return count === 0 ? null : getTask(db, userId, taskId);
+}
