@@ -22,8 +22,8 @@ export const milestonesReply = {
   ],
 };
 
-const task = (ref: string, title: string, estimatedMin: number, dependsOn: string[] = []) => ({
-  ref,
+const task = (key: string, title: string, estimatedMin: number, dependsOn: string[] = []) => ({
+  key,
   title,
   description: null,
   estimatedMin,
@@ -33,11 +33,17 @@ const task = (ref: string, title: string, estimatedMin: number, dependsOn: strin
   dependsOn,
 });
 
-export const tasksReplies = [
-  { tasks: [task("t1", "Work on portfolio", 60), task("t2", "Sketch the home page layout on paper", 25, ["t1"])] },
-  { tasks: [task("t1", "Set up the site skeleton with one page", 60, ["m1-t2"]), task("t2", "Build the home page from the sketch", 90, ["t1"])] },
-  { tasks: [task("t1", "Deploy the site and open the public link", 40, ["m2-t2"]), task("t2", "Ask two people to try the site", 15, ["t1"])] },
-];
+/** All tasks for all three milestones, as the model returns them in one reply. */
+export const tasksReply = {
+  tasks: [
+    task("m1-t1", "Work on portfolio", 60),
+    task("m1-t2", "Sketch the home page layout on paper", 25, ["m1-t1"]),
+    task("m2-t1", "Set up the site skeleton with one page", 60, ["m1-t2"]),
+    task("m2-t2", "Build the home page from the sketch", 90, ["m2-t1"]),
+    task("m3-t1", "Deploy the site and open the public link", 40, ["m2-t2"]),
+    task("m3-t2", "Ask two people to try the site", 15, ["m3-t1"]),
+  ],
+};
 
 const pass = (key: string) => ({
   key, specificity: 4, actionability: 4, canStartNow: 4, fitsOneSession: 5, verdict: "PASS", reason: "", rewrittenTitle: null, parts: null,
@@ -55,7 +61,7 @@ export const happyLLM = () =>
   new FakeLLMClient()
     .on("goal-parser", parsedGoal)
     .on("goal-decomposer", milestonesReply)
-    .on("task-generator", ...tasksReplies)
+    .on("task-generator", tasksReply)
     .on("task-reality-check", realityReply);
 
 export const draftTask = (key: string, overrides: Partial<DraftTask> = {}): DraftTask => ({

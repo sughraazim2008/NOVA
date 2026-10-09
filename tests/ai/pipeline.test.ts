@@ -1,7 +1,7 @@
 import { FakeLLMClient, SAMPLE_NOTE, SAMPLE_SENTENCES, decomposeGoalText, sampleDraft, validateDraft } from "@nova/ai";
 import { GoalDraftSchema } from "@nova/types";
 import { describe, expect, it } from "vitest";
-import { TODAY, happyLLM, milestonesReply, parsedGoal, realityReply, tasksReplies } from "./fixtures";
+import { TODAY, happyLLM, milestonesReply, parsedGoal, realityReply, tasksReply } from "./fixtures";
 
 const context = { today: TODAY, defaultDailyCapacityMin: 120 };
 const request = { text: "Build a portfolio by October 31, an hour a day." };
@@ -20,8 +20,8 @@ describe("decomposeGoalText", () => {
     expect(validateDraft(draft, TODAY)).toEqual([]);
     expect(GoalDraftSchema.safeParse(draft).success).toBe(true);
 
-    // parse, decompose, one call per milestone, one reality check
-    expect(llm.calls.map((c) => c.task)).toEqual(["goal-parser", "goal-decomposer", "task-generator", "task-generator", "task-generator", "task-reality-check"]);
+    // four model calls in all
+    expect(llm.calls.map((c) => c.task)).toEqual(["goal-parser", "goal-decomposer", "task-generator", "task-reality-check"]);
   });
 
   it('rewrites "Work on portfolio" into a concrete action, as the specification requires', async () => {
@@ -29,15 +29,6 @@ describe("decomposeGoalText", () => {
     const first = result.ok ? result.value.tasks[0] : undefined;
     expect(first?.title).toBe("Choose the three projects to showcase");
     expect(first?.realityCheck).toMatchObject({ verdict: "REWRITTEN", original: "Work on portfolio" });
-  });
-
-  it("gives each milestone's prompt the tasks written before it", async () => {
-    const llm = happyLLM();
-    await decomposeGoalText(request, context, { llm });
-    const [first, second, third] = llm.callsFor("task-generator").map((c) => c.user);
-    expect(first).toContain("Earlier tasks (already written; you may depend on these by key):\nnone");
-    expect(second).toContain("- m1-t2:");
-    expect(third).toContain("- m2-t2:");
   });
 
   it("lets what the user typed in the form override what the model read", async () => {
@@ -49,7 +40,7 @@ describe("decomposeGoalText", () => {
     const quiet = new FakeLLMClient()
       .on("goal-parser", { ...parsedGoal, availableMinPerDay: null })
       .on("goal-decomposer", milestonesReply)
-      .on("task-generator", ...tasksReplies)
+      .on("task-generator", tasksReply)
       .on("task-reality-check", realityReply);
     const result = await decomposeGoalText(request, context, { llm: quiet });
     expect(result.ok && result.value.goal.dailyCapacityMin).toBe(120);
@@ -66,7 +57,7 @@ describe("decomposeGoalText", () => {
     const llm = new FakeLLMClient()
       .on("goal-parser", parsedGoal)
       .on("goal-decomposer", milestonesReply)
-      .on("task-generator", ...tasksReplies)
+      .on("task-generator", tasksReply)
       .on("task-reality-check", { error: { kind: "UNAVAILABLE", message: "down" } });
     const result = await decomposeGoalText(request, context, { llm });
     if (!result.ok) throw new Error("expected a draft");
@@ -89,7 +80,7 @@ describe("decomposeGoalText", () => {
   });
 
   it("never returns a draft when the model keeps producing a dangling prerequisite", async () => {
-    const bad = { tasks: tasksReplies[0]!.tasks.map((t, i) => (i === 0 ? { ...t, dependsOn: ["m7-t1"] } : t)) };
+    const bad = { tasks: tasksReply.tasks.map((t, i) => (i === 0 ? { ...t, dependsOn: ["m7-t1"] } : t)) };
     const llm = new FakeLLMClient().on("goal-parser", parsedGoal).on("goal-decomposer", milestonesReply).on("task-generator", bad);
     const result = await decomposeGoalText(request, context, { llm });
     expect(!result.ok && result.error.kind).toBe("INVALID_OUTPUT");

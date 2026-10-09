@@ -1,6 +1,6 @@
 import { FakeLLMClient, decomposeGoal, generateTasks, parseGoal } from "@nova/ai";
 import { describe, expect, it } from "vitest";
-import { TODAY, draftTask, goal, milestonesReply, parsedGoal, tasksReplies } from "./fixtures";
+import { TODAY, goal, milestonesReply, parsedGoal, tasksReply } from "./fixtures";
 
 const milestones = milestonesReply.milestones.map((m, i) => ({ key: `m${i + 1}`, ...m }));
 
@@ -67,38 +67,46 @@ describe("decomposeGoal", () => {
 });
 
 describe("generateTasks", () => {
-  const earlier = [draftTask("m1-t1"), draftTask("m1-t2")];
-  const input = { goal, milestones, milestoneIndex: 1, earlierTasks: earlier };
+  const input = { goal, milestones };
 
-  it("turns refs into keys and keeps dependencies on earlier milestones", async () => {
-    const llm = new FakeLLMClient().on("task-generator", tasksReplies[1]);
+  it("returns every milestone's tasks from one call, in milestone order", async () => {
+    const shuffled = { tasks: [...tasksReply.tasks].reverse() };
+    const llm = new FakeLLMClient().on("task-generator", shuffled);
     const result = await generateTasks(input, { llm });
     expect(result.ok && result.value.map((t) => [t.key, t.milestoneKey, t.dependsOn])).toEqual([
-      ["m2-t1", "m2", ["m1-t2"]],
+      ["m1-t2", "m1", ["m1-t1"]],
+      ["m1-t1", "m1", []],
       ["m2-t2", "m2", ["m2-t1"]],
+      ["m2-t1", "m2", ["m1-t2"]],
+      ["m3-t2", "m3", ["m3-t1"]],
+      ["m3-t1", "m3", ["m2-t2"]],
     ]);
-    expect(result.ok && result.value.every((t) => t.source === "AI" && t.realityCheck === null)).toBe(true);
+    expect(result.ok && result.value.every((t) => t.source === "AI" && t.realityCheck === null && t.deadline === null)).toBe(true);
+    expect(llm.calls).toHaveLength(1);
   });
 
-  it("shows the model the earlier tasks and marks which milestone to write", async () => {
-    const llm = new FakeLLMClient().on("task-generator", tasksReplies[1]);
+  it("lists the milestones for the model and passes on hints about the person", async () => {
+    const llm = new FakeLLMClient().on("task-generator", tasksReply);
     await generateTasks({ ...input, hints: ["keep writing tasks under 20 minutes"] }, { llm });
     const prompt = llm.calls[0]?.user ?? "";
-    expect(prompt).toContain("- m1-t2:");
-    expect(prompt).toContain("2. Development   ← write tasks for this one");
+    expect(prompt).toContain("m1. Design\nm2. Development\nm3. Deployment");
     expect(prompt).toContain("keep writing tasks under 20 minutes");
+    expect(llm.calls[0]?.promptVersion).toBe("task-generator@2");
   });
 
-  const reply = (...tasks: object[]) => ({ tasks: tasks.map((t, i) => ({ ...tasksReplies[1]!.tasks[0], ref: `t${i + 1}`, dependsOn: [], ...t })) });
+  const change = (key: string, patch: object) => ({ tasks: tasksReply.tasks.map((t) => (t.key === key ? { ...t, ...patch } : t)) });
 
   it.each([
-    ["a prerequisite that does not exist", reply({ dependsOn: ["m9-t9"] }, {})],
-    ["a task that depends on itself", reply({ dependsOn: ["t1"] }, {})],
-    ["tasks that wait on each other", reply({ dependsOn: ["t2"] }, { dependsOn: ["t1"] })],
-    ["a duplicate ref", reply({}, { ref: "t1" })],
-    ["a duration over eight hours", reply({ estimatedMin: 600 }, {})],
-    ["a category outside the list", reply({ category: "GARDENING" }, {})],
-    ["only one task", reply({})],
+    ["a prerequisite that does not exist", change("m1-t1", { dependsOn: ["m9-t9"] })],
+    ["a task that depends on itself", change("m1-t1", { dependsOn: ["m1-t1"] })],
+    ["tasks that wait on each other", change("m1-t1", { dependsOn: ["m1-t2"] })],
+    ["a task that depends on a later milestone", change("m1-t1", { dependsOn: ["m3-t1"] })],
+    ["a duplicate key", change("m1-t2", { key: "m1-t1", dependsOn: [] })],
+    ["a key in the wrong format", change("m1-t1", { key: "first" })],
+    ["a key for a milestone that does not exist", change("m3-t2", { key: "m4-t1" })],
+    ["a milestone left without tasks", { tasks: tasksReply.tasks.filter((t) => !t.key.startsWith("m2")).map((t) => ({ ...t, dependsOn: [] })) }],
+    ["a duration over eight hours", change("m1-t1", { estimatedMin: 600 })],
+    ["a category outside the list", change("m1-t1", { category: "GARDENING" })],
   ])("rejects %s", async (_name, bad) => {
     const llm = new FakeLLMClient().on("task-generator", bad);
     const result = await generateTasks(input, { llm });
@@ -107,7 +115,7 @@ describe("generateTasks", () => {
   });
 
   it("recovers when the second reply fixes a dangling prerequisite", async () => {
-    const llm = new FakeLLMClient().on("task-generator", reply({ dependsOn: ["m9-t9"] }, {}), tasksReplies[1]);
+    const llm = new FakeLLMClient().on("task-generator", change("m1-t1", { dependsOn: ["m9-t9"] }), tasksReply);
     expect((await generateTasks(input, { llm })).ok).toBe(true);
     expect(llm.calls[1]?.user).toContain("m9-t9");
   });

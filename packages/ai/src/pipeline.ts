@@ -19,8 +19,8 @@ export interface DecomposeContext {
 }
 
 /**
- * Sentence → reviewed-ready draft: parse → milestones → tasks per milestone → validation →
- * Task Reality Check. Returns a draft only; saving happens elsewhere, after a person confirms it.
+ * Sentence → reviewed-ready draft in four model calls: parse → milestones → tasks → Task Reality Check,
+ * with validation after each. Returns a draft only; saving happens elsewhere, after a person confirms it.
  */
 export async function decomposeGoalText(
   request: DecomposeRequest,
@@ -42,16 +42,9 @@ export async function decomposeGoalText(
   const milestones = await decomposeGoal({ goal, today }, deps);
   if (!milestones.ok) return milestones;
 
-  // One milestone at a time, so each can depend on the tasks written before it.
-  const tasks: DraftTask[] = [];
-  for (const index of milestones.value.keys()) {
-    const generated = await generateTasks(
-      { goal, milestones: milestones.value, milestoneIndex: index, earlierTasks: [...tasks], hints: context.hints ?? [] },
-      deps,
-    );
-    if (!generated.ok) return generated;
-    tasks.push(...generated.value);
-  }
+  const generated = await generateTasks({ goal, milestones: milestones.value, hints: context.hints ?? [] }, deps);
+  if (!generated.ok) return generated;
+  const tasks: DraftTask[] = generated.value;
 
   const draft: GoalDraft = {
     goal: {
