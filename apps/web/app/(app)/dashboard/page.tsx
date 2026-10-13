@@ -1,14 +1,16 @@
 import Link from "next/link";
+import { NoticedCard } from "@/components/dashboard/noticed-card";
 import { GoalCard } from "@/components/goals/goal-card";
 import { EmptyState } from "@/components/ui";
 import { pageUser } from "@/server/auth/page-user";
+import { behaviourSummary } from "@/server/services/behaviour";
 import { listGoals } from "@/server/services/goals";
 
 export const metadata = { title: "Dashboard · NOVA" };
 
 export default async function DashboardPage() {
   const user = await pageUser();
-  const goals = await listGoals(user, "ACTIVE");
+  const [goals, summary] = await Promise.all([listGoals(user, "ACTIVE"), behaviourSummary(user)]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -32,6 +34,7 @@ export default async function DashboardPage() {
           ))}
         </div>
       )}
+      <NoticedCard summary={summary} />
     </div>
   );
 }

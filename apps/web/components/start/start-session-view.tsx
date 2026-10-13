@@ -1,6 +1,7 @@
 "use client";
 
-import type { StartSessionOutcome } from "@nova/types";
+import { FRICTION_OPTIONS } from "@nova/behaviour";
+import type { FrictionReason, StartSessionOutcome } from "@nova/types";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button, ErrorNote, Textarea } from "@/components/ui";
@@ -33,6 +34,7 @@ export function StartSessionView({ taskId }: { taskId: string }) {
   const [reward, setReward] = useState(false);
   const [stuckOpen, setStuckOpen] = useState(false);
   const [note, setNote] = useState("");
+  const [reason, setReason] = useState<FrictionReason | null>(null);
   const [leaving, setLeaving] = useState(false);
   const opened = useRef(false);
   const elapsed = useElapsedMinutes(view?.session.startedAt);
@@ -52,11 +54,16 @@ export function StartSessionView({ taskId }: { taskId: string }) {
     try {
       if (action === "done") setReward(true);
       const body = action === "stuck" ? { action, ...(note.trim() ? { note: note.trim() } : {}) } : { action };
+      // Being stuck is friction: record why, if they said. A failure here must not hold up the new step.
+      if (action === "stuck" && reason) {
+        void api(`/tasks/${view.task.id}/friction`, { method: "POST", body: { reason, ...(note.trim() ? { note: note.trim() } : {}) } }).catch(() => {});
+      }
       // The reward stays on screen long enough to register, however fast the server is.
       const [next] = await Promise.all([api<StartView>(`/start/sessions/${view.session.id}/step`, { method: "POST", body }), action === "done" ? wait(480) : null]);
       setView(next);
       setStuckOpen(false);
       setNote("");
+      setReason(null);
     } catch (caught) {
       setError(describeError(caught));
     } finally {
@@ -150,14 +157,29 @@ export function StartSessionView({ taskId }: { taskId: string }) {
 
           {stuckOpen ? (
             <div className="mt-8 flex w-full flex-col gap-3">
+              <div className="flex flex-wrap justify-center gap-2" role="group" aria-label="What is in the way?">
+                {FRICTION_OPTIONS.map((option) => (
+                  <button
+                    key={option.reason}
+                    type="button"
+                    aria-pressed={reason === option.reason}
+                    disabled={busy}
+                    onClick={() => setReason((current) => (current === option.reason ? null : option.reason))}
+                    className={`rounded-full border px-3 py-1.5 text-sm ${
+                      reason === option.reason ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-neutral-300 text-neutral-700 hover:border-indigo-400"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
               <Textarea
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
-                placeholder="What's in the way? (optional)"
+                placeholder="Say more, if you like"
                 aria-label="What's in the way?"
                 maxLength={300}
                 rows={2}
-                autoFocus
               />
               <Button variant="primary" className="py-3" disabled={busy} onClick={() => act("stuck")}>
                 {busy ? "Finding a smaller step…" : "Give me a smaller step"}

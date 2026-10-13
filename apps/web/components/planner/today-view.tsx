@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { formatMinutes } from "@/lib/format";
 import { useMutation } from "@/lib/use-mutation";
 import type { PlanEntry, TodayPlan } from "@/server/services/planning";
+import { FrictionSheet } from "./friction-sheet";
 
 const dayFormat = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 
@@ -24,10 +25,21 @@ export function TodayView({ plan }: { plan: TodayPlan }) {
   // The task just marked done, so the reward shows at once instead of after the server answers.
   const [justDone, setJustDone] = useState<string | null>(null);
 
-  const act = (taskId: string, action: "start" | "complete" | "reopen" | "skip" | "postpone") => {
+  // Asked right after "Not today" or "Tomorrow", while the reason is fresh.
+  const [asking, setAsking] = useState<{ taskId: string; title: string; lead: string } | null>(null);
+  const [dismissed, setDismissed] = useState<string[]>([]);
+
+  const act = async (taskId: string, action: "start" | "complete" | "reopen" | "skip" | "postpone") => {
     if (action === "complete") setJustDone(taskId);
-    return run(() => api(`/tasks/${taskId}/${action}`, { method: "POST" })).finally(() => setJustDone(null));
+    const ok = await run(() => api(`/tasks/${taskId}/${action}`, { method: "POST" })).finally(() => setJustDone(null));
+    if (ok && (action === "skip" || action === "postpone")) {
+      const title = plan.entries.find((entry) => entry.taskId === taskId)?.task.title ?? "that task";
+      setAsking({ taskId, title, lead: action === "skip" ? "Left for another day." : "Moved to tomorrow." });
+    }
+    return ok;
   };
+
+  const questions = plan.askAbout.filter((question) => !dismissed.includes(question.task.id) && question.task.id !== asking?.taskId);
 
   const open = plan.entries.filter((entry) => entry.outcome === "PENDING" && entry.taskId !== justDone);
   const handled = plan.entries.filter((entry) => entry.outcome !== "PENDING" || entry.taskId === justDone);
@@ -48,6 +60,18 @@ export function TodayView({ plan }: { plan: TodayPlan }) {
       </header>
 
       <ErrorNote message={error} />
+
+      {asking ? (
+        <FrictionSheet key={asking.taskId} taskId={asking.taskId} taskTitle={asking.title} lead={asking.lead} onClose={() => setAsking(null)} />
+      ) : questions[0] ? (
+        <FrictionSheet
+          key={questions[0].task.id}
+          taskId={questions[0].task.id}
+          taskTitle={questions[0].task.title}
+          lead="This was in your plan and didn't happen. No judgement."
+          onClose={() => setDismissed((ids) => [...ids, questions[0]!.task.id])}
+        />
+      ) : null}
 
       {plan.emptyReason ? (
         <EmptyState title={emptyMessages[plan.emptyReason].title}>
