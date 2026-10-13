@@ -11,7 +11,7 @@ Build order and exit gates: [NOVA_PLAN.md §8](NOVA_PLAN.md). Update this file a
 - [x] Phase 6 — Daily planner UI
 - [x] Phase 7 — NOVA START
 - [ ] **Gate A — Working Loop demo** (every step works; a start-to-finish walkthrough from an empty account on the live site is still to be done)
-- [ ] Phase 8 — Behaviour tracking
+- [x] Phase 8 — Behaviour tracking
 - [ ] Phase 8b — Momentum (game layer)
 - [ ] Phase 9 — Adaptive replanning
 - [ ] **Gate B — MVP demo (fail 3 tasks, watch it replan)**
@@ -311,3 +311,36 @@ Decisions:
 - A partly finished task is not offered again the same day; it returns to the plan tomorrow, still in progress, with its time recorded.
 
 Not built: friction is not yet recorded or passed to the step writer (Phase 8), and steps earn no points yet (Phase 8b).
+
+### Phase 8 — Behaviour tracking (2026-10-13)
+
+Built:
+
+- **Events** (`packages/behaviour/events.ts`): pure builders for the nine execution events. Each carries a snapshot of the task at that moment (estimate, kind of work, energy, size, postponements, starts) and the hour and weekday where the user is.
+- **Hooks filled in**: creating, starting, completing, skipping and postponing a task each record their event in the same transaction as the change. A completion also records an overrun at 25% over the estimate or an underrun at 25% under. A task ticked off without timing records the completion alone; no duration is inferred.
+- **Abandonment**, two ways: the third postponement of a task records it once; a task started and then left when its day ends records it at day close.
+- **Day closing** (`closePastDays`): entries still pending from earlier days become missed, or completed if the task was finished elsewhere. It runs when the user next opens Today, not on a timer, and acts only on pending entries, so repeating it or running it twice at once changes nothing.
+- **Friction**: `POST /api/tasks/:id/friction` stores one of the seven reasons with an optional note, plus its event. The "what got in the way?" sheet appears after "Not today" and "Tomorrow", for up to two tasks missed on an earlier day, and as optional chips under "I'm stuck" in NOVA START. One tap, always dismissible.
+- **Friction feeds the step writer**: when a session opens, the task's recent friction is passed to the model as short labels. The user's notes are never sent.
+- **Summary**: `GET /api/behaviour/summary` returns counts by event, estimate against actual by kind of work, and friction by reason. The dashboard shows a short "What NOVA has noticed" card from it, and holds back any timing statement until at least three timed completions exist.
+
+Requirement check (FR-6.1 to FR-6.4):
+
+| Requirement | Result |
+|---|---|
+| FR-6.1 the nine events | met |
+| FR-6.2 estimate vs actual, postponements, starts, friction, time and context | met |
+| FR-6.3 ask "what's stopping you?" with seven options | met |
+| FR-6.4 failure, postponement, abandonment and friction kept distinct | met (missed, skipped, postponed, abandoned-left, abandoned-postponed are all separate) |
+
+Verified: 16 new unit tests and 20 new integration tests (221 unit and 145 integration in total), including the specification's own example (estimated 35, actual 55 → ratio 1.57 and an overrun) and a simulated week whose summary is checked figure by figure. By hand in the browser: "Not today" brought up the sheet, one tap recorded the reason, and the dashboard card appeared.
+
+One real bug found by the tests and fixed: the question about a missed task never appeared, because the task's fresh entry in today's plan hid yesterday's missed one. The lookup now considers earlier days only.
+
+Decisions:
+
+- `TASK_COMPLETED` allows an unknown duration (null) so that ticking a task off does not invent data.
+- Nothing here changes the plan yet. Events and friction are recorded and described; acting on them is Phase 9.
+- The summary describes; it does not claim patterns. Minimum sample sizes and smoothing belong to the execution model.
+
+No dependencies were introduced and the schema did not change.
