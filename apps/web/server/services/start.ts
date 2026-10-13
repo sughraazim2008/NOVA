@@ -1,5 +1,5 @@
 import { breakIntoSteps, fallbackReplacement, fallbackSteps, replaceStep } from "@nova/ai";
-import { completeStep, replaceCurrentStep, sessionMinutes, skipStep, stepsExhausted, toSteps } from "@nova/behaviour";
+import { completeStep, frictionLabel, replaceCurrentStep, sessionMinutes, skipStep, stepsExhausted, toSteps } from "@nova/behaviour";
 import * as database from "@nova/database";
 import { getDb, inTransaction, lockUser } from "@nova/database";
 import type { Goal, MicroAction, StartSession, StartSessionOutcome, StepAction, Task, User } from "@nova/types";
@@ -27,10 +27,13 @@ async function context(user: User, taskId: string) {
 }
 
 /** Task-specific steps from the model when there is one and it answers usably; the built-in opener otherwise. */
-async function writeSteps(task: Task, goal: Goal, milestoneTitle: string | null): Promise<{ steps: MicroAction[]; tailored: boolean }> {
+async function writeSteps(user: User, task: Task, goal: Goal, milestoneTitle: string | null): Promise<{ steps: MicroAction[]; tailored: boolean }> {
   const llm = getLLM();
   if (llm) {
-    const result = await breakIntoSteps({ goalTitle: goal.title, milestoneTitle, task }, aiDeps(llm));
+    // What got in the way before shapes the steps this time. Only the short labels are sent, never the user's notes.
+    const friction = await database.listFriction(getDb(), user.id, { taskId: task.id, limit: 3 });
+    const earlierFriction = [...new Set(friction.map((event) => frictionLabel(event.reason)))];
+    const result = await breakIntoSteps({ goalTitle: goal.title, milestoneTitle, task, earlierFriction }, aiDeps(llm));
     if (result.ok) return { steps: result.value, tailored: true };
   }
   return { steps: fallbackSteps(task), tailored: false };
@@ -50,7 +53,7 @@ export async function openSession(user: User, taskId: string, now: Date = new Da
   if (task.status === "DONE" || task.status === "DROPPED") throw new HttpError("CONFLICT", "That task is already finished.");
 
   // The model call happens before the transaction: it is slow, and nothing is held open while waiting.
-  const { steps, tailored } = await writeSteps(task, goal, milestone?.title ?? null);
+  const { steps, tailored } = await writeSteps(user, task, goal, milestone?.title ?? null);
 
   return inTransaction(getDb(), async (tx) => {
     // Two requests can race here (a double tap). The lock makes them take turns, so the second finds the first one's session.
@@ -59,7 +62,7 @@ export async function openSession(user: User, taskId: string, now: Date = new Da
     if (raced) return view(raced, task, true);
     const started = found(await database.startTask(tx, user.id, taskId));
     const session = found(await database.createStartSession(tx, user.id, taskId, { steps: toSteps(steps), startedAt: now.toISOString() }));
-    await onTaskStarted(tx, user, started);
+    await onTaskStarted(tx, user, started, { viaNovaStart: true }, now);
     return view(session, started, tailored);
   });
 }
@@ -117,7 +120,7 @@ export async function finishSession(user: User, sessionId: string, outcome: Star
     if (outcome === "COMPLETED") {
       task = found(await database.completeTask(tx, user.id, ended.taskId, { now: now.toISOString(), actualMin: sessionMin }));
       await database.setDailyOutcome(tx, user.id, today, ended.taskId, "COMPLETED");
-      await onTaskCompleted(tx, user, task);
+      await onTaskCompleted(tx, user, task, now);
     } else {
       task = found(await database.addTaskTime(tx, user.id, ended.taskId, sessionMin));
       if (outcome === "PARTIAL") await database.setDailyOutcome(tx, user.id, today, ended.taskId, "PARTIAL");

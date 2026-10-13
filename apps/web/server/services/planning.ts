@@ -3,6 +3,7 @@ import { getDb } from "@nova/database";
 import { capacityForDate, generateDailyPlan, type ExcludedTask, type PlannerInput, type PlannerOutput } from "@nova/planner";
 import type { DailyPlan, DailyTask, Goal, IsoDate, Task, User } from "@nova/types";
 import { todayIn } from "../clock";
+import { closePastDays, frictionQuestions, type FrictionQuestion } from "./behaviour";
 
 export interface PlanEntry extends DailyTask {
   task: Task;
@@ -19,6 +20,8 @@ export interface TodayPlan {
   entries: PlanEntry[];
   /** Tasks too long to fit any day as they stand; shown so the user can split them. */
   needsSplit: { task: Task; goal: Pick<Goal, "id" | "title"> }[];
+  /** Tasks from recent days that were planned and never touched, to ask about (at most two). */
+  askAbout: FrictionQuestion[];
   /** Why the plan is empty, when it is. */
   emptyReason: "NO_GOALS" | "NO_CAPACITY" | "NOTHING_ELIGIBLE" | "ALL_DONE" | null;
 }
@@ -64,7 +67,7 @@ async function load(user: User, today: IsoDate, existing: DailyPlan | null): Pro
   };
 }
 
-function present(plan: DailyPlan, loaded: Loaded, excluded: ExcludedTask[]): TodayPlan {
+async function present(user: User, plan: DailyPlan, loaded: Loaded, excluded: ExcludedTask[]): Promise<TodayPlan> {
   const tasks = new Map(loaded.tasks.map((task) => [task.id, task]));
   const goals = new Map(loaded.goals.map((goal) => [goal.id, { id: goal.id, title: goal.title }]));
   const withGoal = (taskId: string) => {
@@ -93,6 +96,7 @@ function present(plan: DailyPlan, loaded: Loaded, excluded: ExcludedTask[]): Tod
     generatedAt: plan.generatedAt,
     entries,
     needsSplit: excluded.filter((e) => e.needsSplit).flatMap((e) => withGoal(e.taskId) ?? []),
+    askAbout: await frictionQuestions(user, plan.date, loaded.tasks, loaded.goals),
     emptyReason,
   };
 }
@@ -127,22 +131,24 @@ async function build(user: User, today: IsoDate, existing: DailyPlan | null): Pr
     plannerVersion: output.plannerVersion,
     tasks: output.tasks.map(({ taskId, order, plannedMin, score, reason }) => ({ taskId, order, plannedMin, score, reason })),
   });
-  return present(plan, loaded, output.excluded);
+  return present(user, plan, loaded, output.excluded);
 }
 
 /** Today's plan, created on first request. Reading it again does not reshuffle the day. */
 export async function getTodayPlan(user: User): Promise<TodayPlan> {
   const today = todayIn(user.timezone);
+  await closePastDays(user, today);
   const existing = await database.getDailyPlan(getDb(), user.id, today);
   if (!existing) return build(user, today, null);
 
   // The stored plan is shown as it is; the planner is run without saving, only to report what needs splitting.
   const loaded = await load(user, today, existing);
-  return present(existing, loaded, generateDailyPlan(loaded.input).excluded);
+  return present(user, existing, loaded, generateDailyPlan(loaded.input).excluded);
 }
 
 /** Rebuilds today's plan from the current state of the goals. */
 export async function regenerateTodayPlan(user: User): Promise<TodayPlan> {
   const today = todayIn(user.timezone);
+  await closePastDays(user, today);
   return build(user, today, await database.getDailyPlan(getDb(), user.id, today));
 }

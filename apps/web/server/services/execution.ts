@@ -12,7 +12,7 @@ import { found, HttpError } from "../http";
 export async function startTask(user: User, taskId: string): Promise<Task> {
   return inTransaction(getDb(), async (tx) => {
     const task = found(await database.startTask(tx, user.id, taskId));
-    await onTaskStarted(tx, user, task);
+    await onTaskStarted(tx, user, task, { viaNovaStart: false });
     return task;
   });
 }
@@ -42,9 +42,10 @@ export async function skipTask(user: User, taskId: string): Promise<Task> {
   const today = todayIn(user.timezone);
   return inTransaction(getDb(), async (tx) => {
     const task = found(await database.getTask(tx, user.id, taskId));
-    const inPlan = await database.setDailyOutcome(tx, user.id, today, taskId, "SKIPPED");
-    if (!inPlan) throw new HttpError("CONFLICT", "That task is not in today's plan.");
-    await onTaskSkipped(tx, user, task);
+    const entry = await database.getDailyEntry(tx, user.id, today, taskId);
+    if (!entry) throw new HttpError("CONFLICT", "That task is not in today's plan.");
+    await database.setDailyOutcome(tx, user.id, today, taskId, "SKIPPED");
+    await onTaskSkipped(tx, user, task, { plannedMin: entry.plannedMin });
     return task;
   });
 }
@@ -57,7 +58,7 @@ export async function postponeTask(user: User, taskId: string, toDate?: IsoDate)
   return inTransaction(getDb(), async (tx) => {
     const task = found(await database.postponeTask(tx, user.id, taskId, until));
     await database.setDailyOutcome(tx, user.id, today, taskId, "POSTPONED");
-    await onTaskPostponed(tx, user, task);
+    await onTaskPostponed(tx, user, task, { toDate: until });
     return task;
   });
 }
