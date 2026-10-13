@@ -24,3 +24,11 @@ export function getDb(): PrismaClient {
 export function inTransaction<T>(db: Db, fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
   return "$transaction" in db ? db.$transaction(fn) : fn(db);
 }
+
+/**
+ * Makes concurrent transactions for the same user take turns, until this transaction ends.
+ * Used where "check, then write" must not interleave, such as opening a session on a double tap.
+ */
+export async function lockUser(tx: Prisma.TransactionClient, userId: string): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
+}

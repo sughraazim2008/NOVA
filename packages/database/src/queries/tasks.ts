@@ -157,3 +157,11 @@ export async function startTask(db: Db, userId: string, taskId: string): Promise
   });
   return count === 0 ? null : getTask(db, userId, taskId);
 }
+
+/** Adds time spent to a task without changing its status, for a sitting that did not finish it. */
+export async function addTaskTime(db: Db, userId: string, taskId: string, minutes: number): Promise<Task | null> {
+  const task = await getTask(db, userId, taskId);
+  if (!task) return null;
+  await db.task.updateMany({ where: { id: taskId, goal: { userId } }, data: { actualMin: (task.actualMin ?? 0) + minutes } });
+  return getTask(db, userId, taskId);
+}
