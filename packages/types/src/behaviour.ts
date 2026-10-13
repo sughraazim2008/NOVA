@@ -34,8 +34,11 @@ export const EventPayloadSchemas = {
   TASK_CREATED: TaskSnapshotSchema.extend({ origin: TaskOriginSchema }),
   TASK_STARTED: TaskSnapshotSchema.extend({ viaNovaStart: z.boolean() }),
   TASK_COMPLETED: TaskSnapshotSchema.extend({
-    actualMin: z.number().int().nonnegative(),
-    ratio,
+    /** Total minutes recorded for the task; null when it was ticked off without timing it. */
+    actualMin: z.number().int().nonnegative().nullable(),
+    /** actualMin ÷ estimatedMin; null when the time is unknown. */
+    ratio: ratio.nullable(),
+    /** NOVA START sittings the task took. */
     sessions: z.number().int().nonnegative(),
   }),
   TASK_SKIPPED: TaskSnapshotSchema.extend({ plannedMin: z.number().int().positive() }),

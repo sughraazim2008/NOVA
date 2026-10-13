@@ -9,3 +9,4 @@ export * from "./queries/dependencies";
 export * from "./queries/plans";
 export * from "./queries/events";
 export * from "./queries/start-sessions";
+export * from "./queries/friction";
