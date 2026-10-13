@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, Card, EmptyState, ErrorNote } from "@/components/ui";
 import { DoneBurst } from "@/components/ui/done-burst";
@@ -120,6 +121,7 @@ type Act = (taskId: string, action: "start" | "complete" | "reopen" | "skip" | "
 
 /** The one thing to do now. Everything about this card should make the next action obvious. */
 function FocusCard({ entry, pending, act }: { entry: PlanEntry; pending: boolean; act: Act }) {
+  const router = useRouter();
   const [showWhy, setShowWhy] = useState(false);
   const started = entry.task.status === "IN_PROGRESS";
   return (
@@ -132,18 +134,11 @@ function FocusCard({ entry, pending, act }: { entry: PlanEntry; pending: boolean
       {entry.task.description ? <p className="mt-2 text-sm text-neutral-700">{entry.task.description}</p> : null}
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
-        {started ? (
-          <Button variant="primary" className="px-6 py-3 text-base" disabled={pending} onClick={() => act(entry.taskId, "complete")}>
-            Done
-          </Button>
-        ) : (
-          <Button variant="primary" className="px-8 py-3 text-base" disabled={pending} onClick={() => act(entry.taskId, "start")}>
-            Start
-          </Button>
-        )}
-        {!started ? (
-          <Button variant="ghost" disabled={pending} onClick={() => act(entry.taskId, "complete")}>Already done</Button>
-        ) : null}
+        {/* Start opens the guided session, which marks the task as started. */}
+        <Button variant="primary" className="px-8 py-3 text-base" disabled={pending} onClick={() => router.push(`/start/${entry.taskId}`)}>
+          {started ? "Continue" : "Start"}
+        </Button>
+        <Button variant="ghost" disabled={pending} onClick={() => act(entry.taskId, "complete")}>{started ? "Done" : "Already done"}</Button>
         <Button variant="ghost" disabled={pending} onClick={() => act(entry.taskId, "skip")}>Not today</Button>
         <Button variant="ghost" disabled={pending} onClick={() => act(entry.taskId, "postpone")}>Tomorrow</Button>
       </div>
