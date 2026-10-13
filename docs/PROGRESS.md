@@ -9,8 +9,8 @@ Build order and exit gates: [NOVA_PLAN.md §8](NOVA_PLAN.md). Update this file a
 - [x] Phase 4 — AI decomposition + Task Reality Check (first real-model run done; prompt tuning still to do)
 - [x] Phase 5 — Planning engine
 - [x] Phase 6 — Daily planner UI
-- [ ] Phase 7 — NOVA START
-- [ ] **Gate A — Working Loop demo**
+- [x] Phase 7 — NOVA START
+- [ ] **Gate A — Working Loop demo** (every step works; a start-to-finish walkthrough from an empty account on the live site is still to be done)
 - [ ] Phase 8 — Behaviour tracking
 - [ ] Phase 8b — Momentum (game layer)
 - [ ] Phase 9 — Adaptive replanning
@@ -273,3 +273,41 @@ Decisions: "Start" marks the task in progress for now; Phase 7 replaces it with 
 ### Deployment preparation (2026-10-09)
 
 Added `apps/web/vercel.json`, the `DEMO_SIGNIN` switch, and `docs/deploy.md`. A production build was run locally and checked: with the switch on, the sign-in page offers the demo account; with it off and no GitHub credentials, sign-in is closed; API routes answer 401 without a session. The deployment itself needs the owner's Vercel account and has not been performed.
+
+### Deployed (2026-10-10)
+
+The owner deployed `main` to Vercel with a Neon database: https://nova-one-sand.vercel.app. Checked from outside: the sign-in page loads with the demo sign-in, signed-out visitors are redirected, and the API answers 401 without a session. Every push to `main` redeploys.
+
+### Phase 7 — NOVA START (2026-10-13)
+
+Built:
+
+- **Step writing** (`packages/ai/task-breaker.ts`): at the moment Start is pressed, the model turns the task into 3 to 7 micro-actions of 1 to 5 minutes, the first of which must take 2 minutes at most. Validated and retried like every other model call.
+- **"I'm stuck"**: the current step is replaced by one smaller or clearer step, written by the model with the user's optional note about what is in the way. A replacement must be shorter than the step it replaces.
+- **Fallbacks**: with no model, an unreachable model, or unusable output, a built-in opener (get it open → find the place → smallest first piece → five more minutes) and a built-in "two-minute timer" replacement are used. Start never fails for lack of a model, and the screen says when the steps are general ones.
+- **Session rules** (`packages/behaviour/start-session.ts`): pure functions for done, skip, replace, and sitting length.
+- **Service and routes**: open (or resume) a session, act on a step, finish as completed, partial or abandoned. Finishing records the minutes the sitting took; completed finishes the task, partial keeps it in progress and marks today's entry as partly done, abandoned keeps the time and leaves the task open.
+- **Screen** (`/start/[taskId]`): full screen, no navigation, one step at a time in large type with one main button, quiet "I'm stuck" and "Skip", progress dots, elapsed minutes shown plainly with no countdown. A reward animation after each step, larger for the first. After the last step: keep going, finish, or stop for now. A closing screen states time spent against the estimate without judgement.
+- Today's Start button now opens the session; an in-progress task shows Continue.
+
+Requirement check (FR-5.1 to FR-5.5):
+
+| Requirement | Result |
+|---|---|
+| FR-5.1 Start opens a session | met; reopening returns the same session |
+| FR-5.2 task broken down at start time into 2–5 minute actions, one at a time | met |
+| FR-5.3 done / stuck / skip per step | met |
+| FR-5.4 stuck gives a smaller or clearer step | met |
+| FR-5.5 completion records actual duration and returns to Today | met |
+| FR-5.6 adaptive task collapse (blockers) | Phase 9, as planned |
+
+Verified: 20 new unit tests and 17 new integration tests (205 unit and 125 integration in total), including a double tap on Start opening only one session. By hand in the browser against the real model (Groq): Start on "List every project, job and course from the last two years" produced "Open a new blank document" then "Open your LinkedIn profile"; "I'm stuck" with the note "I don't have a LinkedIn profile" produced "Write down any projects, jobs, and courses you remember…", which steps around the obstacle; stopping part-way showed the closing screen and returned to Today with the task marked partly done and the next task in focus.
+
+Decisions:
+
+- Session state uses the `StartSession` table created in Phase 2; no schema change.
+- Opening a session takes a per-user database lock, so two simultaneous requests cannot both create one.
+- The model call happens before the transaction opens, so nothing is locked while waiting on it.
+- A partly finished task is not offered again the same day; it returns to the plan tomorrow, still in progress, with its time recorded.
+
+Not built: friction is not yet recorded or passed to the step writer (Phase 8), and steps earn no points yet (Phase 8b).

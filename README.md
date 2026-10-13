@@ -4,7 +4,7 @@ NOVA transforms long-term goals into adaptive daily execution plans. Unlike trad
 
 NOVA goes one step further: its planner does not stop when it gives the user a task. NOVA helps the user start the task, detects friction when execution fails, and adapts future plans based on how the user actually works.
 
-> **Status: in progress.** Working today: sign-in, goals with milestones and prerequisites, describing a goal in a sentence and reviewing the AI's breakdown, a deterministic daily plan, and a Today page to start, finish, skip or postpone tasks. NOVA START (guided first steps) comes next. See [docs/PROGRESS.md](docs/PROGRESS.md); to put it online, see [docs/deploy.md](docs/deploy.md).
+> **Status: in progress.** Live at https://nova-one-sand.vercel.app (shared demo account). Working today: goals with milestones and prerequisites; describing a goal in a sentence and reviewing the AI's breakdown; a deterministic daily plan; a Today page; and NOVA START, which turns a task into small first steps and offers a smaller one when you are stuck. Behaviour tracking and adaptive replanning come next. See [docs/PROGRESS.md](docs/PROGRESS.md).
 
 ## Core loop
 
