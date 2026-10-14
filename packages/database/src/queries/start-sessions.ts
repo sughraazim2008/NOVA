@@ -73,3 +73,9 @@ export async function endStartSession(
 export function countStartSessions(db: Db, userId: string, taskId: string): Promise<number> {
   return db.startSession.count({ where: { userId, taskId } });
 }
+
+/** Every NOVA START session the user has had, oldest first. */
+export async function listStartSessions(db: Db, userId: string): Promise<StartSession[]> {
+  const rows = await db.startSession.findMany({ where: { userId }, orderBy: [{ startedAt: "asc" }, { id: "asc" }] });
+  return rows.map(toStartSession);
+}

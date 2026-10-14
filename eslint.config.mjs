@@ -1,8 +1,9 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
-// packages that must stay pure: no framework, database, LLM SDK or sibling packages other than types
+// packages that must stay pure: no framework, database, LLM SDK, clock or randomness
 const purePackages = ["planner", "behaviour", "simulation"];
+const frameworkAndIO = ["next", "next/*", "react", "react-dom", "@prisma/*", "@nova/database", "@nova/ai"];
 
 export default tseslint.config(
   {
@@ -26,23 +27,31 @@ export default tseslint.config(
     rules: {
       "no-restricted-imports": [
         "error",
-        {
-          patterns: [
-            {
-              group: ["next", "next/*", "react", "react-dom", "@prisma/*", "@nova/database", "@nova/ai"],
-              message: "planner, behaviour and simulation are pure: they may import @nova/types only.",
-            },
-          ],
-        },
+        { patterns: [{ group: frameworkAndIO, message: "planner, behaviour and simulation are pure: no framework, database or model." }] },
       ],
-      "no-restricted-globals": [
-        "error",
-        { name: "fetch", message: "Pure packages do no I/O." },
-      ],
+      "no-restricted-globals": ["error", { name: "fetch", message: "Pure packages do no I/O." }],
       "no-restricted-properties": [
         "error",
         { object: "Date", property: "now", message: "Pass the date in; pure packages never read the clock." },
         { object: "Math", property: "random", message: "Pure packages are deterministic." },
+      ],
+    },
+  },
+  {
+    // The planner must never learn that behaviour or the game layer exists (docs/game-layer.md, rule 8).
+    // This block comes after the one above and replaces its import rule for the planner alone.
+    files: ["packages/planner/src/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [...frameworkAndIO, "@nova/behaviour", "@nova/simulation"],
+              message: "The planner may import @nova/types only. In particular it must not see behaviour or game state.",
+            },
+          ],
+        },
       ],
     },
   },
