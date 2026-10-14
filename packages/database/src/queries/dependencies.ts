@@ -79,3 +79,23 @@ export async function listDependencies(
     orderBy: [{ taskId: "asc" }, { dependsOnTaskId: "asc" }],
   });
 }
+
+/**
+ * Makes every task that waited on `fromTaskId` wait on `toTaskId` instead. Used when a task is
+ * shrunk or split and its work now finishes in a different task. Returns how many were moved.
+ */
+export async function repointDependents(db: Db, userId: string, fromTaskId: string, toTaskId: string): Promise<number> {
+  const edges = await db.taskDependency.findMany({
+    where: { dependsOnTaskId: fromTaskId, taskId: { not: toTaskId }, task: { goal: { userId } } },
+    select: { taskId: true },
+  });
+  for (const { taskId } of edges) {
+    await db.taskDependency.delete({ where: { taskId_dependsOnTaskId: { taskId, dependsOnTaskId: fromTaskId } } });
+    await db.taskDependency.upsert({
+      where: { taskId_dependsOnTaskId: { taskId, dependsOnTaskId: toTaskId } },
+      create: { taskId, dependsOnTaskId: toTaskId },
+      update: {},
+    });
+  }
+  return edges.length;
+}

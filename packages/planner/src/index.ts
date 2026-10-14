@@ -8,3 +8,4 @@ export { capacityForDate, type CapacityArgs } from "./capacity";
 export { daysLeft, goalPressure, roundScore, scoreTask, taskUrgency, type ScoreContext } from "./prioritiser";
 export { buildReason } from "./reasons";
 export { generateDailyPlan } from "./scheduler";
+export { decideReplan, nextShrink, splitSizes, SHRINK_LADDER, SPLIT_PART_MIN, type ReplanDecision, type ReplanInput } from "./replanner";

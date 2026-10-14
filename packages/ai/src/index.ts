@@ -14,3 +14,4 @@ export { decomposeGoalText, type DecomposeContext, type DecomposeError } from ".
 export { SAMPLE_NOTE, SAMPLE_SENTENCES, sampleDraft } from "./samples";
 export { addDays, daysBetween } from "./dates";
 export { breakIntoSteps, fallbackReplacement, fallbackSteps, replaceStep, type BreakIntoStepsInput, type ReplaceStepInput } from "./task-breaker";
+export { rewriteTask, type RewriteTaskInput, type TaskRewrite } from "./friction-analyser";

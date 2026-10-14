@@ -4,3 +4,4 @@ export * from "./events";
 export * from "./friction";
 export * from "./summary";
 export * from "./momentum";
+export * from "./execution-model";
