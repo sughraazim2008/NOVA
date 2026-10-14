@@ -12,7 +12,7 @@ Build order and exit gates: [NOVA_PLAN.md §8](NOVA_PLAN.md). Update this file a
 - [x] Phase 7 — NOVA START
 - [ ] **Gate A — Working Loop demo** (every step works; a start-to-finish walkthrough from an empty account on the live site is still to be done)
 - [x] Phase 8 — Behaviour tracking
-- [ ] Phase 8b — Momentum (game layer)
+- [x] Phase 8b — Momentum (game layer)
 - [ ] Phase 9 — Adaptive replanning
 - [ ] **Gate B — MVP demo (fail 3 tasks, watch it replan)**
 - [ ] Phase 10 — Goal health
@@ -344,3 +344,20 @@ Decisions:
 - The summary describes; it does not claim patterns. Minimum sample sizes and smoothing belong to the execution model.
 
 No dependencies were introduced and the schema did not change.
+
+### Phase 8b — Momentum, the game layer (2026-10-14)
+
+Built, following the nine rules in `game-layer.md`:
+
+- **Logic** (`packages/behaviour/momentum.ts`, pure): sparks (5 a step, 15 for the first step of a day, 10 plus 1 per 5 estimated minutes for a task, 5 for saying what got in the way, 30 for coming back after three idle days, a surprise 10 on roughly one completion in eight decided by the event id), levels (50, 150, 300, 500 … sparks), momentum (0–100, +12 for the day's first action and +4 for each further one up to +24 a day, no change for two idle days, then −3 a day, never below a floor of 10 + 2 × level), nine badges, and milestone "boss" health. All numbers are in one `GAME` table.
+- **Route**: `GET /api/progress`, recomputed from history on every request; nothing is stored except the user's game mode.
+- **Screens**: Ember, a small flame companion in the header that grows brighter with momentum and is never sad; a level strip on Today with sparks to the next level and what today earned; a "+N" pop-up the moment sparks are earned, with level-ups and new badges; the first task shown as "Today's quest"; a journey map and boss health bars on each goal; a badge shelf and a Full / Quiet / Off control on the dashboard. Quiet removes all motion through one attribute; Off hides every game element.
+- **The planner cannot see any of it**: a lint rule forbids the planner from importing the behaviour package, a test scans its source, and another proves the plan is byte-for-byte identical however much has been earned.
+
+Requirement check (FR-8.1 to FR-8.8): all met. Sound (optional in the design) was not built.
+
+Verified: 26 new unit tests and 7 new integration tests (247 unit and 152 integration in total), including the design's spark table, the grace period and floor of momentum, the comeback threshold, timezone-correct days, and that sparks never go down as history grows.
+
+Found while testing: sparks *could* go down if activity were inserted into a past gap (it removes a comeback bonus). History is always recorded at the time it happens, so this cannot occur in use; the code and test now state that assumption.
+
+Not verified in the browser. The development machine was out of memory during this phase (a normally 20-second test run took up to 49 minutes, and individual tests timed out until re-run on their own), so the screens were checked by type-checking and tests only. They should be looked at on the live site.
