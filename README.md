@@ -120,6 +120,7 @@ pnpm build
 - [Build plan](docs/NOVA_PLAN.md)
 - [Phase prompts](docs/NOVA_PROMPTS.md)
 - [Progress](docs/PROGRESS.md)
+- [Handoff: how to pick the project up](docs/HANDOFF.md)
 - [Development rules](CLAUDE.md)
 
 ## Licence

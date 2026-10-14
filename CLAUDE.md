@@ -1,5 +1,7 @@
 # NOVA Development Rules
 
+> **Starting a new session?** Read `docs/HANDOFF.md` first: current state, the working routine, environment facts and known gotchas. Then `docs/PROGRESS.md`.
+
 ## Product
 
 NOVA is an adaptive goal-execution system.
