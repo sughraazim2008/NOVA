@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { NoticedCard } from "@/components/dashboard/noticed-card";
+import { BadgeShelf, GameModeControl } from "@/components/game/widgets";
 import { GoalCard } from "@/components/goals/goal-card";
 import { EmptyState } from "@/components/ui";
 import { pageUser } from "@/server/auth/page-user";
@@ -35,6 +36,8 @@ export default async function DashboardPage() {
         </div>
       )}
       <NoticedCard summary={summary} />
+      <BadgeShelf />
+      <GameModeControl />
     </div>
   );
 }

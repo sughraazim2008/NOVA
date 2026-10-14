@@ -5,6 +5,7 @@ import type { FrictionReason, StartSessionOutcome } from "@nova/types";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button, ErrorNote, Textarea } from "@/components/ui";
+import { useProgress } from "@/components/game/progress-provider";
 import { DoneBurst } from "@/components/ui/done-burst";
 import { api, describeError } from "@/lib/api";
 import { formatMinutes } from "@/lib/format";
@@ -27,6 +28,7 @@ function useElapsedMinutes(startedAt: string | undefined) {
 
 export function StartSessionView({ taskId }: { taskId: string }) {
   const router = useRouter();
+  const game = useProgress();
   const [view, setView] = useState<StartView | null>(null);
   const [finished, setFinished] = useState<FinishView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +63,7 @@ export function StartSessionView({ taskId }: { taskId: string }) {
       // The reward stays on screen long enough to register, however fast the server is.
       const [next] = await Promise.all([api<StartView>(`/start/sessions/${view.session.id}/step`, { method: "POST", body }), action === "done" ? wait(480) : null]);
       setView(next);
+      if (action === "done") void game?.refresh();
       setStuckOpen(false);
       setNote("");
       setReason(null);
@@ -78,6 +81,7 @@ export function StartSessionView({ taskId }: { taskId: string }) {
     setError(null);
     try {
       setFinished(await api<FinishView>(`/start/sessions/${view.session.id}/finish`, { method: "POST", body: { outcome } }));
+      void game?.refresh();
       setLeaving(false);
     } catch (caught) {
       setError(describeError(caught));

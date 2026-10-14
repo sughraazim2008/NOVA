@@ -14,12 +14,15 @@ export function FrictionSheet({
   taskId,
   taskTitle,
   lead,
+  onAnswered,
   onClose,
 }: {
   taskId: string;
   taskTitle: string;
   /** The sentence above the options, e.g. "Moved to tomorrow." */
   lead: string;
+  /** Called once an answer has been saved. */
+  onAnswered?: () => void;
   onClose: () => void;
 }) {
   const [note, setNote] = useState("");
@@ -33,6 +36,7 @@ export function FrictionSheet({
     try {
       await api(`/tasks/${taskId}/friction`, { method: "POST", body: { reason, ...(note.trim() ? { note: note.trim() } : {}) } });
       setThanks(true);
+      onAnswered?.();
       setTimeout(onClose, 1400);
     } catch (caught) {
       setError(describeError(caught));

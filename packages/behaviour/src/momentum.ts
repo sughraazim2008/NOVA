@@ -86,13 +86,23 @@ export interface Progress {
 const DAY_MS = 86_400_000;
 const dayNumber = (date: IsoDate) => Math.round(Date.parse(`${date}T00:00:00Z`) / DAY_MS);
 
+const formatters = new Map<string, Intl.DateTimeFormat | null>();
+
+/** One formatter per timezone: building them is slow, and a history can hold thousands of events. */
+function formatterFor(timezone: string): Intl.DateTimeFormat | null {
+  if (!formatters.has(timezone)) {
+    try {
+      formatters.set(timezone, new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }));
+    } catch {
+      formatters.set(timezone, null);
+    }
+  }
+  return formatters.get(timezone) ?? null;
+}
+
 /** The calendar date an instant falls on for someone in `timezone`. Deterministic: no clock involved. */
 export function localDate(instant: IsoDateTime, timezone: string): IsoDate {
-  try {
-    return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(instant));
-  } catch {
-    return instant.slice(0, 10);
-  }
+  return formatterFor(timezone)?.format(new Date(instant)) ?? instant.slice(0, 10);
 }
 
 /** Sparks needed to reach a level. Level 1 is where everyone starts; early levels come quickly. */

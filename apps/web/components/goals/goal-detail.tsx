@@ -5,6 +5,8 @@ import type { Milestone, Task } from "@nova/types";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { BossBar, JourneyMap } from "@/components/game/boss-bar";
+import { useProgress } from "@/components/game/progress-provider";
 import { Badge, Button, Card, EmptyState, ErrorNote, Input, ProgressBar } from "@/components/ui";
 import { api } from "@/lib/api";
 import { formatDate, formatMinutes, label } from "@/lib/format";
@@ -21,6 +23,7 @@ export function GoalDetail({ tree }: { tree: Tree }) {
   const router = useRouter();
   const { run, pending, error } = useMutation();
   const [editing, setEditing] = useState(false);
+  const game = useProgress();
 
   const allTasks = milestones.flatMap((milestone) => milestone.tasks);
   const prerequisitesOf = (taskId: string) => dependencies.filter((d) => d.taskId === taskId).map((d) => d.dependsOnTaskId);
@@ -87,6 +90,8 @@ export function GoalDetail({ tree }: { tree: Tree }) {
         )}
       </Card>
 
+      {game?.enabled ? <JourneyMap milestones={milestones} /> : null}
+
       {milestones.length === 0 ? (
         <EmptyState title="Break the goal into milestones">
           A milestone is a stage on the way, such as Design, Build or Launch. Add the first one below.
@@ -120,6 +125,7 @@ function MilestoneSection({
   prerequisitesOf: (taskId: string) => string[];
 }) {
   const { run, pending, error } = useMutation();
+  const game = useProgress();
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState(milestone.title);
   const done = milestone.tasks.filter((t) => t.status === "DONE").length;
@@ -164,6 +170,8 @@ function MilestoneSection({
           </>
         )}
       </div>
+
+      {game?.enabled ? <BossBar tasks={milestone.tasks} /> : null}
 
       {milestone.tasks.length > 0 ? (
         <ul className="mt-2 divide-y divide-neutral-100">

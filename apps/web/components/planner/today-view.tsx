@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useProgress } from "@/components/game/progress-provider";
+import { LevelStrip } from "@/components/game/widgets";
 import { Button, Card, EmptyState, ErrorNote } from "@/components/ui";
 import { DoneBurst } from "@/components/ui/done-burst";
 import { api } from "@/lib/api";
@@ -22,6 +24,7 @@ const emptyMessages: Record<NonNullable<TodayPlan["emptyReason"]>, { title: stri
 
 export function TodayView({ plan }: { plan: TodayPlan }) {
   const { run, pending, error } = useMutation();
+  const game = useProgress();
   // The task just marked done, so the reward shows at once instead of after the server answers.
   const [justDone, setJustDone] = useState<string | null>(null);
 
@@ -32,6 +35,7 @@ export function TodayView({ plan }: { plan: TodayPlan }) {
   const act = async (taskId: string, action: "start" | "complete" | "reopen" | "skip" | "postpone") => {
     if (action === "complete") setJustDone(taskId);
     const ok = await run(() => api(`/tasks/${taskId}/${action}`, { method: "POST" })).finally(() => setJustDone(null));
+    if (ok && (action === "complete" || action === "reopen")) void game?.refresh();
     if (ok && (action === "skip" || action === "postpone")) {
       const title = plan.entries.find((entry) => entry.taskId === taskId)?.task.title ?? "that task";
       setAsking({ taskId, title, lead: action === "skip" ? "Left for another day." : "Moved to tomorrow." });
@@ -59,16 +63,19 @@ export function TodayView({ plan }: { plan: TodayPlan }) {
         ) : null}
       </header>
 
+      <LevelStrip />
+
       <ErrorNote message={error} />
 
       {asking ? (
-        <FrictionSheet key={asking.taskId} taskId={asking.taskId} taskTitle={asking.title} lead={asking.lead} onClose={() => setAsking(null)} />
+        <FrictionSheet key={asking.taskId} taskId={asking.taskId} taskTitle={asking.title} lead={asking.lead} onAnswered={() => void game?.refresh()} onClose={() => setAsking(null)} />
       ) : questions[0] ? (
         <FrictionSheet
           key={questions[0].task.id}
           taskId={questions[0].task.id}
           taskTitle={questions[0].task.title}
           lead="This was in your plan and didn't happen. No judgement."
+          onAnswered={() => void game?.refresh()}
           onClose={() => setDismissed((ids) => [...ids, questions[0]!.task.id])}
         />
       ) : null}
@@ -146,11 +153,13 @@ type Act = (taskId: string, action: "start" | "complete" | "reopen" | "skip" | "
 /** The one thing to do now. Everything about this card should make the next action obvious. */
 function FocusCard({ entry, pending, act }: { entry: PlanEntry; pending: boolean; act: Act }) {
   const router = useRouter();
+  const game = useProgress();
+  const questLabel = game?.enabled ? "Today's quest" : "Start here";
   const [showWhy, setShowWhy] = useState(false);
   const started = entry.task.status === "IN_PROGRESS";
   return (
     <Card className="nova-rise border-indigo-200 shadow-sm ring-1 ring-indigo-100">
-      <p className="text-xs font-medium tracking-wide text-indigo-700 uppercase">{started ? "In progress" : "Start here"}</p>
+      <p className="text-xs font-medium tracking-wide text-indigo-700 uppercase">{started ? "In progress" : questLabel}</p>
       <h2 className="mt-1 text-xl font-semibold text-neutral-900">{entry.task.title}</h2>
       <p className="mt-1 text-sm text-neutral-500">
         {formatMinutes(entry.plannedMin)} · {entry.goal.title}
