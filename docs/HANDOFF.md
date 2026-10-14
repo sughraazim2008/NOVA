@@ -12,16 +12,15 @@ Open a session in `~/nova` and say:
 
 ## Current state
 
-*Last updated: 2026-10-14, during Phase 9.*
+*Last updated: 2026-10-14, end of Phase 9.*
 
-- **Done, merged to `main`, live:** Phases 0–8b. See the checklist at the top of `PROGRESS.md`.
-- **In progress:** Phase 9, adaptive replanning, on branch `feature/replanning`. Check `git log main..feature/replanning` and the Phase 9 entry in `PROGRESS.md` (if present) to see how far it got.
-- **Next after that:** Gate B review (fail three tasks with three different reasons on purpose, check the plan changes, write `docs/demo.md`), then Phase 10 (goal health).
+- **Done, merged to `main`, live:** Phases 0–9. See the checklist at the top of `PROGRESS.md`.
+- **Next:** Phase 10, goal health (projected finish date per goal, on track / at risk / off track with a plain explanation; feed risk into the planner's `risk` term). Prompt in `NOVA_PROMPTS.md`, requirements FR-7.4 in `NOVA_PLAN.md`. Then Phase 11 (what-if and Rescue Mode) and Phase 12 (polish).
 - **Known open items:**
-  - Gate A still needs a full walkthrough on the live site from an empty account (owner's task).
-  - The Phase 8b screens (Ember, level strip, spark pop-ups, badges, boss bars) have never been looked at in a browser.
+  - FR-5.6, the blocker sub-graph from inside NOVA START, was not built in Phase 9. Small and self-contained: a "Something's in the way" button in the session → the model proposes 2–4 prerequisite tasks → validated → inserted so the original depends on them.
+  - Gate A and Gate B both need a live run by the owner (`demo.md` describes Gate B). Both scenarios pass as automated tests.
   - Phase 4 prompts were tuned on one sentence only; a ten-sentence comparison is still to do.
-  - FR-5.6 (blocker sub-graph from inside NOVA START) belongs to Phase 9 and may not be built yet; check `PROGRESS.md`.
+  - Hour of day is recorded on every event but not yet used in planning.
 
 ## What NOVA is, in five lines
 

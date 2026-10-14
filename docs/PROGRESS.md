@@ -13,8 +13,8 @@ Build order and exit gates: [NOVA_PLAN.md §8](NOVA_PLAN.md). Update this file a
 - [ ] **Gate A — Working Loop demo** (every step works; a start-to-finish walkthrough from an empty account on the live site is still to be done)
 - [x] Phase 8 — Behaviour tracking
 - [x] Phase 8b — Momentum (game layer)
-- [ ] Phase 9 — Adaptive replanning
-- [ ] **Gate B — MVP demo (fail 3 tasks, watch it replan)**
+- [x] Phase 9 — Adaptive replanning (blocker sub-graph FR-5.6 not built)
+- [ ] **Gate B — MVP demo (fail 3 tasks, watch it replan)** (scenario passes as an automated test; a live run of `demo.md` is still to be done)
 - [ ] Phase 10 — Goal health
 - [ ] Phase 11 — What-if + Rescue Mode
 - [ ] Phase 12 — Polish, testing, deployment
@@ -361,3 +361,39 @@ Verified: 26 new unit tests and 7 new integration tests (247 unit and 152 integr
 Found while testing: sparks *could* go down if activity were inserted into a past gap (it removes a comeback bonus). History is always recorded at the time it happens, so this cannot occur in use; the code and test now state that assumption.
 
 Not verified in the browser. The development machine was out of memory during this phase (a normally 20-second test run took up to 49 minutes, and individual tests timed out until re-run on their own), so the screens were checked by type-checking and tests only. They should be looked at on the live site.
+
+### Phase 9 — Adaptive replanning (2026-10-14)
+
+Built:
+
+- **Replanning rules** (`packages/planner/replanner.ts`, pure): one decision per friction answer. Too big → shrink to the next size down (60 → 30 → 15 → 5) and keep the rest as a follow-on task. Not enough time → split into two to four parts of about 30 minutes. Low energy → move demanding work to tomorrow, shrink easy work, and ask whether it matters after the third time. Don't understand → reword (once), then ask. Distracted → a shorter sitting. Don't know how to start → smaller first steps in NOVA START, then a smaller task if it happens again. Don't want to → ask whether it still matters. Nothing is ever dropped without the user's answer.
+- **Applying them** (`apps/web/server/services/replanning.ts`): changes to the task graph happen in one transaction with the friction record, a `REPLAN_APPLIED` event, and the action stored on the friction; prerequisites are moved so that whatever waited for the whole task now waits for the part where its work ends; today's plan is rebuilt. The model is used only to reword a task, and only if one is configured.
+- **"Does this still matter?"**: Keep, Move to next week, or Drop (`POST /api/tasks/:id/decide`).
+- **Personal execution model** (`packages/behaviour/execution-model.ts`, pure): duration multipliers per kind of work from at least three timed completions, pulled towards 1 by three imaginary on-time completions and clamped to 0.7–2; the size of task this person rarely finishes; plain hints. The planner now uses the multipliers (its reason says so), the task writer receives the hints, and the dashboard lists what NOVA now does differently.
+- **Whether a response helped**: starting a task within 24 hours of NOVA acting on its friction marks that friction `startedAfter`, the signal a later learning stage can use.
+- **On screen**: after a friction answer the sheet says in one sentence what NOVA changed, or asks keep / next week / drop.
+- `docs/demo.md`: the Gate B walkthrough.
+
+Requirement check:
+
+| Requirement | Result |
+|---|---|
+| FR-7.1 a missed task is never just moved to tomorrow; relevance, reason, then change | met for tasks with a friction answer; a task missed with no answer is asked about (Phase 8) and replanned once answered |
+| FR-7.2 each friction reason has its own response | met, all seven, with escalation on repeats |
+| FR-7.3 optimise goal survival, not adherence | met in the sense that work is reshaped rather than rescheduled; goal-level survival is Phase 10–11 |
+| FR-6.5 patterns by kind of work, size and hour | met for kind of work and size; hour of day is recorded but not yet used |
+| FR-6.6 personal execution model (basic) | met |
+| FR-3.7 planner uses execution history | met |
+| FR-5.6 blocker sub-graph from inside NOVA START | **not built** |
+
+Verified: 21 new unit tests and 13 new integration tests (268 unit and 165 integration in total), including the Gate B scenario: three tasks skipped with three different reasons produce a shrink, a move and a split, and the rebuilt plan uses the freed time for the first part of the split task. In the browser: answering "It feels too big" about yesterday's untouched task showed "Shrunk to a 15-minute start. The other 10 minutes are now a separate task that comes after it.", earned 5 sparks, and the game layer from Phase 8b displayed correctly for the first time (level strip, Ember in the header, "Today's quest").
+
+A real bug found by the tests and fixed before release: splitting a task moved the new second part's own prerequisite onto the last part, so the parts waited on each other in a loop, and the planner then refused the whole graph. The parts are now chained only after other dependants have been moved, and linking failures abort the transaction.
+
+Decisions:
+
+- The execution model is computed from the event history on each request rather than stored in `ExecutionEstimate` rows, the same choice as the game layer: no cache to go stale, and rule changes apply at once. The table remains for a cache if it is ever needed.
+- Replanning is triggered by a friction answer. A task missed or postponed with no answer is asked about, not changed silently.
+- "Don't understand" without a model changes nothing and says so, rather than guessing.
+
+Not built: the blocker sub-graph (FR-5.6: "my CV is outdated" during a session creates a short chain of prerequisite tasks); using hour of day in planning; proactively splitting tasks longer than the preferred size before they fail.
