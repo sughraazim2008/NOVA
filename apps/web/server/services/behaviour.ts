@@ -2,10 +2,9 @@ import { closeEntry, shouldAskFriction, summariseEvents, type BehaviourSummary }
 import * as database from "@nova/database";
 import { getDb, inTransaction, lockUser } from "@nova/database";
 import { addDays } from "@nova/planner";
-import type { FrictionEvent, FrictionReason, Goal, IsoDate, Task, User } from "@nova/types";
+import type { Goal, IsoDate, Task, User } from "@nova/types";
 import { todayIn } from "../clock";
-import { onFrictionReported, onTaskLeftUnfinished } from "../hooks/behaviour";
-import { found } from "../http";
+import { onTaskLeftUnfinished } from "../hooks/behaviour";
 
 /**
  * Closes every earlier day that still has untouched entries: finished-elsewhere becomes completed,
@@ -31,16 +30,6 @@ export async function closePastDays(user: User, today: IsoDate, now: Date = new 
       }
     }
     return closed;
-  });
-}
-
-/** The user's answer to "what got in the way?", stored with the event that marks it. */
-export async function reportFriction(user: User, taskId: string, input: { reason: FrictionReason; note?: string | undefined }, now: Date = new Date()): Promise<FrictionEvent> {
-  return inTransaction(getDb(), async (tx) => {
-    const task = found(await database.getTask(tx, user.id, taskId));
-    const friction = found(await database.recordFriction(tx, user.id, { taskId, reason: input.reason, note: input.note ?? null, occurredAt: now.toISOString() }));
-    await onFrictionReported(tx, user, task, { reason: input.reason, hasNote: Boolean(input.note?.trim()) }, now);
-    return friction;
   });
 }
 

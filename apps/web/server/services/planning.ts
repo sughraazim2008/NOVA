@@ -1,6 +1,7 @@
 import * as database from "@nova/database";
 import { getDb } from "@nova/database";
-import { capacityForDate, generateDailyPlan, type ExcludedTask, type PlannerInput, type PlannerOutput } from "@nova/planner";
+import { buildExecutionModel } from "@nova/behaviour";
+import { addDays, capacityForDate, generateDailyPlan, type ExcludedTask, type PlannerInput, type PlannerOutput } from "@nova/planner";
 import type { DailyPlan, DailyTask, Goal, IsoDate, Task, User } from "@nova/types";
 import { todayIn } from "../clock";
 import { closePastDays, frictionQuestions, type FrictionQuestion } from "./behaviour";
@@ -40,11 +41,14 @@ const spendsTime = (entry: DailyTask) => entry.outcome === "COMPLETED" || entry.
 
 async function load(user: User, today: IsoDate, existing: DailyPlan | null): Promise<Loaded> {
   const db = getDb();
-  const [goals, tasks, dependencies] = await Promise.all([
+  const [goals, tasks, dependencies, events] = await Promise.all([
     database.listGoals(db, user.id),
     database.listTasksForPlanning(db, user.id),
     database.listDependencies(db, user.id),
+    database.listEvents(db, user.id, { from: `${addDays(today, -90)}T00:00:00.000Z`, types: ["TASK_STARTED", "TASK_COMPLETED", "FRICTION_REPORTED"] }),
   ]);
+  // What the last 90 days say about how long this person's tasks really take.
+  const model = buildExecutionModel(events);
 
   const handled = (existing?.tasks ?? []).filter((entry) => entry.outcome !== "PENDING");
   const usedTodayMin = handled.filter(spendsTime).reduce((sum, entry) => sum + entry.plannedMin, 0);
@@ -61,7 +65,7 @@ async function load(user: User, today: IsoDate, existing: DailyPlan | null): Pro
       goals,
       tasks,
       dependencies,
-      multipliers: [], // filled from the execution model in Phase 9
+      multipliers: model.multipliers.map(({ category, multiplier }) => ({ category, multiplier })),
       handledTodayTaskIds: handled.map((entry) => entry.taskId),
     },
   };

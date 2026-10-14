@@ -1,5 +1,5 @@
 import { frictionReported, taskAbandoned, taskCompleted, taskCreated, taskPostponed, taskSkipped, taskStarted } from "@nova/behaviour";
-import { countStartSessions, recordEvent, type Db } from "@nova/database";
+import { countStartSessions, markStartedAfterFriction, recordEvent, type Db } from "@nova/database";
 import type { FrictionReason, IsoDate, NewBehaviourEvent, Task, User } from "@nova/types";
 import { localMoment } from "../clock";
 
@@ -15,8 +15,10 @@ export async function onTaskCreated(db: Db, user: User, task: Task, now: Date = 
   await write(db, user, taskCreated(task, localMoment(user.timezone, now)));
 }
 
+/** Also marks recent friction on the task as followed by a start: the sign that NOVA's response helped. */
 export async function onTaskStarted(db: Db, user: User, task: Task, details: { viaNovaStart: boolean }, now: Date = new Date()): Promise<void> {
   await write(db, user, taskStarted(task, localMoment(user.timezone, now), details.viaNovaStart));
+  await markStartedAfterFriction(db, user.id, task.id, new Date(now.getTime() - 86_400_000).toISOString());
 }
 
 /** Also records an overrun or underrun when the time taken was far from the estimate. */

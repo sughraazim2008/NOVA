@@ -1,4 +1,5 @@
 import { SAMPLE_SENTENCES, decomposeGoalText, sampleDraft, validateDraft } from "@nova/ai";
+import { buildExecutionModel } from "@nova/behaviour";
 import * as database from "@nova/database";
 import { getDb, inTransaction } from "@nova/database";
 import type { ConfirmDraftRequest, DecomposeRequest, Goal, GoalDraft, User } from "@nova/types";
@@ -33,7 +34,10 @@ export async function decompose(user: User, request: DecomposeRequest): Promise<
     );
   }
 
-  const result = await decomposeGoalText(request, context, aiDeps(llm));
+  // What NOVA has learned about this person shapes the tasks it writes. Only derived hints are sent, never their notes.
+  const events = await database.listEvents(getDb(), user.id, { types: ["TASK_STARTED", "TASK_COMPLETED", "FRICTION_REPORTED"] });
+  const hints = buildExecutionModel(events).hints;
+  const result = await decomposeGoalText(request, { ...context, hints }, aiDeps(llm));
   if (result.ok) return result.value;
 
   switch (result.error.kind) {
