@@ -69,7 +69,8 @@ describe("GET /progress", () => {
     await call(stepRoute.POST as Handler, { id }, { action: "skip" });
     expect((await progress()).sparks).toBe(20); // one more step done; stuck and skip earn nothing
 
-    await call(frictionRoute.POST as Handler, { id: taskId }, { reason: "TOO_OVERWHELMING" });
+    // A reason whose response leaves the task's size alone, so the completion below is worth a known amount.
+    await call(frictionRoute.POST as Handler, { id: taskId }, { reason: "DONT_KNOW_HOW_TO_START" });
     expect((await progress()).sparks).toBe(20 + GAME.FRICTION);
 
     await call(finishRoute.POST as Handler, { id }, { outcome: "COMPLETED" });
@@ -113,7 +114,8 @@ describe("GET /progress", () => {
     const before = await plan();
     const id = (await call(openRoute.POST as Handler, { taskId })).data.session.id;
     for (let i = 0; i < 3; i += 1) await call(stepRoute.POST as Handler, { id }, { action: "done" });
-    await call(frictionRoute.POST as Handler, { id: taskId }, { reason: "LOW_ENERGY" });
+    // Friction can change the plan on purpose (Phase 9); this answer's response does not, so any change here would come from the game layer.
+    await call(frictionRoute.POST as Handler, { id: taskId }, { reason: "DONT_KNOW_HOW_TO_START" });
     expect((await progress()).sparks).toBeGreaterThan(0);
     expect(await plan()).toEqual(before);
   });

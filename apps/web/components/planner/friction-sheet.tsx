@@ -27,27 +27,60 @@ export function FrictionSheet({
 }) {
   const [note, setNote] = useState("");
   const [sending, setSending] = useState<FrictionReason | null>(null);
-  const [thanks, setThanks] = useState(false);
+  const [result, setResult] = useState<{ message: string; askToKeep: boolean } | null>(null);
+  const [deciding, setDeciding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function answer(reason: FrictionReason) {
     setSending(reason);
     setError(null);
     try {
-      await api(`/tasks/${taskId}/friction`, { method: "POST", body: { reason, ...(note.trim() ? { note: note.trim() } : {}) } });
-      setThanks(true);
+      const response = await api<{ replan: { message: string; askToKeep: boolean } }>(`/tasks/${taskId}/friction`, {
+        method: "POST",
+        body: { reason, ...(note.trim() ? { note: note.trim() } : {}) },
+      });
+      setResult(response.replan);
       onAnswered?.();
-      setTimeout(onClose, 1400);
+      // A question needs an answer; anything else is just news, shown long enough to read.
+      if (!response.replan.askToKeep) setTimeout(onClose, 4000);
     } catch (caught) {
       setError(describeError(caught));
       setSending(null);
     }
   }
 
-  if (thanks) {
+  async function decide(choice: "KEEP" | "NEXT_WEEK" | "DROP") {
+    setDeciding(true);
+    setError(null);
+    try {
+      await api(`/tasks/${taskId}/decide`, { method: "POST", body: { choice } });
+      onAnswered?.();
+      onClose();
+    } catch (caught) {
+      setError(describeError(caught));
+      setDeciding(false);
+    }
+  }
+
+  if (result?.askToKeep) {
+    return (
+      <div className="nova-rise rounded-xl border border-neutral-200 bg-white px-4 py-4">
+        <p className="font-medium text-neutral-900">Does &ldquo;{taskTitle}&rdquo; still matter?</p>
+        <p className="mt-1 text-sm text-neutral-600">It&apos;s fine if it doesn&apos;t. Plans change.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button disabled={deciding} onClick={() => decide("KEEP")}>Keep it</Button>
+          <Button disabled={deciding} onClick={() => decide("NEXT_WEEK")}>Move to next week</Button>
+          <Button variant="ghost" disabled={deciding} onClick={() => decide("DROP")}>Drop it</Button>
+        </div>
+        <div className="mt-2"><ErrorNote message={error} /></div>
+      </div>
+    );
+  }
+
+  if (result) {
     return (
       <div role="status" className="nova-rise rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-        Thanks. That helps NOVA plan this better next time.
+        <span className="font-medium">Thanks.</span> {result.message}
       </div>
     );
   }

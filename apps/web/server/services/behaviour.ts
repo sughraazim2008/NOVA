@@ -1,4 +1,4 @@
-import { closeEntry, shouldAskFriction, summariseEvents, type BehaviourSummary } from "@nova/behaviour";
+import { buildExecutionModel, closeEntry, shouldAskFriction, summariseEvents, type BehaviourSummary, type ExecutionModel } from "@nova/behaviour";
 import * as database from "@nova/database";
 import { getDb, inTransaction, lockUser } from "@nova/database";
 import { addDays } from "@nova/planner";
@@ -73,4 +73,10 @@ export async function behaviourSummary(user: User, days = 30, now: Date = new Da
   const from = `${addDays(todayIn(user.timezone, now), -days)}T00:00:00.000Z`;
   const events = await database.listEvents(getDb(), user.id, { from });
   return { ...summariseEvents(events), days };
+}
+
+/** What NOVA has learned from the last 90 days: the same model the planner uses. */
+export async function executionModel(user: User, now: Date = new Date()): Promise<ExecutionModel> {
+  const from = `${addDays(todayIn(user.timezone, now), -90)}T00:00:00.000Z`;
+  return buildExecutionModel(await database.listEvents(getDb(), user.id, { from, types: ["TASK_STARTED", "TASK_COMPLETED", "FRICTION_REPORTED"] }));
 }

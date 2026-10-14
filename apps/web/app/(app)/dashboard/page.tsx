@@ -4,14 +4,14 @@ import { BadgeShelf, GameModeControl } from "@/components/game/widgets";
 import { GoalCard } from "@/components/goals/goal-card";
 import { EmptyState } from "@/components/ui";
 import { pageUser } from "@/server/auth/page-user";
-import { behaviourSummary } from "@/server/services/behaviour";
+import { behaviourSummary, executionModel } from "@/server/services/behaviour";
 import { listGoals } from "@/server/services/goals";
 
 export const metadata = { title: "Dashboard · NOVA" };
 
 export default async function DashboardPage() {
   const user = await pageUser();
-  const [goals, summary] = await Promise.all([listGoals(user, "ACTIVE"), behaviourSummary(user)]);
+  const [goals, summary, model] = await Promise.all([listGoals(user, "ACTIVE"), behaviourSummary(user), executionModel(user)]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -35,7 +35,7 @@ export default async function DashboardPage() {
           ))}
         </div>
       )}
-      <NoticedCard summary={summary} />
+      <NoticedCard summary={summary} model={model} />
       <BadgeShelf />
       <GameModeControl />
     </div>

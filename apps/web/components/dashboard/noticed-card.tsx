@@ -1,4 +1,4 @@
-import { frictionLabel, type BehaviourSummary } from "@nova/behaviour";
+import { frictionLabel, type BehaviourSummary, type ExecutionModel } from "@nova/behaviour";
 import { Card } from "@/components/ui";
 import { label } from "@/lib/format";
 
@@ -9,7 +9,7 @@ const MIN_TIMED = 3;
  * A plain description of the last month. Counts only: nothing here is a score, and nothing is
  * called a pattern until there is enough of it to mean something.
  */
-export function NoticedCard({ summary }: { summary: BehaviourSummary & { days: number } }) {
+export function NoticedCard({ summary, model }: { summary: BehaviourSummary & { days: number }; model: ExecutionModel }) {
   if (summary.started === 0 && summary.completed === 0 && summary.friction.length === 0) return null;
 
   const timed = summary.byCategory.reduce((sum, entry) => sum + entry.timed, 0);
@@ -28,6 +28,11 @@ export function NoticedCard({ summary }: { summary: BehaviourSummary & { days: n
     );
   }
   if (slowest && (slowest.meanRatio ?? 0) >= 1.15) lines.push(`${label(slowest.category)} tasks run longest: about ${slowest.meanRatio}× the estimate.`);
+  // What NOVA has started doing differently because of it.
+  for (const entry of model.multipliers) {
+    lines.push(`NOVA now plans ${label(entry.category).toLowerCase()} tasks at ${entry.multiplier}× your estimate, from ${entry.sampleSize} timed tasks.`);
+  }
+  if (model.preferredMaxMin !== null) lines.push(`Tasks over ${model.preferredMaxMin} minutes rarely get finished, so NOVA keeps new ones smaller.`);
   if (topFriction) {
     lines.push(
       topFriction.count >= 2
