@@ -172,7 +172,8 @@ describe("friction", () => {
     const task = await addTask("Hard thing", 60);
     const result = await call(frictionRoute.POST as Handler, { id: task.id }, { reason: "DONT_KNOW_HOW_TO_START", note: "  no idea where to begin  " });
     expect(result.status).toBe(201);
-    expect(result.data).toMatchObject({ taskId: task.id, reason: "DONT_KNOW_HOW_TO_START", note: "no idea where to begin", appliedAction: null, startedAfter: null });
+    // The first "don't know how to start" changes nothing in the plan; the next Start opens with smaller steps.
+    expect(result.data.friction).toMatchObject({ taskId: task.id, reason: "DONT_KNOW_HOW_TO_START", note: "no idea where to begin", appliedAction: "MICRO_ACTIONS", startedAfter: null });
     expect(await listFriction(db, user.id, { taskId: task.id })).toHaveLength(1);
     const events = await listEvents(db, user.id, { types: ["FRICTION_REPORTED"] });
     expect(events[0]?.payload).toMatchObject({ reason: "DONT_KNOW_HOW_TO_START", hasNote: true, sizeBucket: "20_TO_60" });
@@ -185,6 +186,8 @@ describe("friction", () => {
     expect((await call(frictionRoute.POST as Handler, { id: task.id }, { reason: "LAZY" })).status).toBe(422);
     expect((await call(frictionRoute.POST as Handler, { id: task.id }, {})).status).toBe(422);
     expect(await db.frictionEvent.count()).toBe(7);
+    // Six led to a change; "I don't understand it" needs the model to reword the task, and none is configured here.
+    expect(await db.frictionEvent.count({ where: { appliedAction: { not: null } } })).toBe(6);
   });
 
   it("is refused for another user's task and without a session", async () => {
